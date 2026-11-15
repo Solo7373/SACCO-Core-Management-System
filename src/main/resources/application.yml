@@ -1,0 +1,128 @@
+server:
+  port: 8081
+
+sacco:
+  security:
+    # Break-glass key for the admin account. Leave blank to disable recovery.
+    admin-recovery-key: ${SACCO_ADMIN_RECOVERY_KEY:}
+    # JWT signing key. Leave blank for an ephemeral development key.
+    jwt-secret: ${SACCO_JWT_SECRET:}
+  # Africa's Talking SMS, delivery reports, incoming SMS and OTP verification.
+  # All secrets come from environment variables; never commit real values.
+  africastalking:
+    enabled: ${AT_ENABLED:false}
+    username: ${AT_USERNAME:}
+    api-key: ${AT_API_KEY:}
+    sender-id: ${AT_SENDER_ID:}
+    base-url: ${AT_BASE_URL:}
+    sandbox: ${AT_SANDBOX:true}
+    default-country-code: ${AT_DEFAULT_COUNTRY_CODE:UG}
+    # High-entropy value embedded in the callback path. Blank fails closed.
+    webhook-token: ${AT_WEBHOOK_TOKEN:}
+    # Comma-separated IPs/CIDRs, e.g. 52.16.171.135,52.16.0.0/16.
+    webhook-allowed-ips: ${AT_WEBHOOK_ALLOWED_IPS:}
+    # Enable only behind ngrok/nginx/a trusted load balancer.
+    webhook-trust-forwarded-headers: ${AT_WEBHOOK_TRUST_FORWARDED_HEADERS:false}
+    max-message-length: ${AT_MAX_MESSAGE_LENGTH:1000}
+    block-opted-out: ${AT_BLOCK_OPTED_OUT:true}
+    http:
+      connect-timeout-ms: ${AT_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${AT_READ_TIMEOUT_MS:15000}
+    dispatch:
+      interval-ms: ${AT_DISPATCH_INTERVAL_MS:5000}
+      initial-delay-ms: ${AT_DISPATCH_INITIAL_DELAY_MS:15000}
+      batch-size: ${AT_DISPATCH_BATCH_SIZE:50}
+      max-attempts: ${AT_DISPATCH_MAX_ATTEMPTS:5}
+      base-backoff-ms: ${AT_DISPATCH_BASE_BACKOFF_MS:30000}
+      max-backoff-ms: ${AT_DISPATCH_MAX_BACKOFF_MS:3600000}
+      stale-sending-seconds: ${AT_DISPATCH_STALE_SENDING_SECONDS:600}
+      bulk-limit: ${AT_BULK_LIMIT:500}
+    otp:
+      length: ${AT_OTP_LENGTH:6}
+      ttl-seconds: ${AT_OTP_TTL_SECONDS:300}
+      max-attempts: ${AT_OTP_MAX_ATTEMPTS:5}
+      resend-cooldown-seconds: ${AT_OTP_RESEND_COOLDOWN_SECONDS:60}
+      max-per-phone-per-window: ${AT_OTP_MAX_PER_PHONE:5}
+      max-per-ip-per-window: ${AT_OTP_MAX_PER_IP:20}
+      window-minutes: ${AT_OTP_WINDOW_MINUTES:15}
+      # Stable across restarts. Generate with: openssl rand -hex 32
+      pepper: ${AT_OTP_PEPPER:}
+      require-active-member: ${AT_OTP_REQUIRE_ACTIVE_MEMBER:false}
+  # Meta WhatsApp Cloud API. Separate from SMS: WhatsApp handles conversational
+  # and template messages, SMS remains the universal fallback.
+  # All secrets come from environment variables; never commit real values.
+  whatsapp:
+    enabled: ${WA_ENABLED:false}
+    # Meta phone number ID (not the phone number itself).
+    phone-number-id: ${WA_PHONE_NUMBER_ID:}
+    # WhatsApp Business Account ID, required for template sync.
+    waba-id: ${WA_WABA_ID:}
+    # System User token with whatsapp_business_messaging and _management.
+    access-token: ${WA_ACCESS_TOKEN:}
+    # Meta app secret, used for X-Hub-Signature-256 verification.
+    app-secret: ${WA_APP_SECRET:}
+    # Value configured in the Meta app dashboard as the webhook verify token.
+    verify-token: ${WA_VERIFY_TOKEN:}
+    # High-entropy value embedded in the callback path. Blank fails closed.
+    webhook-token: ${WA_WEBHOOK_TOKEN:}
+    # Override for a local mock Meta server during development.
+    graph-base-url: ${WA_GRAPH_BASE_URL:https://graph.facebook.com}
+    graph-version: ${WA_GRAPH_VERSION:v23.0}
+    default-language: ${WA_DEFAULT_LANGUAGE:en}
+    max-text-length: ${WA_MAX_TEXT_LENGTH:4096}
+    customer-service-window-hours: ${WA_CUSTOMER_SERVICE_WINDOW_HOURS:24}
+    block-opted-out: ${WA_BLOCK_OPTED_OUT:true}
+    require-opt-in-for-templates: ${WA_REQUIRE_OPT_IN_FOR_TEMPLATES:true}
+    template-sync-enabled: ${WA_TEMPLATE_SYNC_ENABLED:true}
+    http:
+      connect-timeout-ms: ${WA_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${WA_READ_TIMEOUT_MS:15000}
+    dispatch:
+      interval-ms: ${WA_DISPATCH_INTERVAL_MS:5000}
+      initial-delay-ms: ${WA_DISPATCH_INITIAL_DELAY_MS:20000}
+      batch-size: ${WA_DISPATCH_BATCH_SIZE:25}
+      max-attempts: ${WA_DISPATCH_MAX_ATTEMPTS:5}
+      base-backoff-ms: ${WA_DISPATCH_BASE_BACKOFF_MS:30000}
+      max-backoff-ms: ${WA_DISPATCH_MAX_BACKOFF_MS:3600000}
+      stale-sending-seconds: ${WA_DISPATCH_STALE_SENDING_SECONDS:600}
+      bulk-limit: ${WA_BULK_LIMIT:200}
+  backup:
+    # Tier 1: continuous local PostgreSQL snapshots.
+    local:
+      directory: ${SACCO_BACKUP_LOCAL_DIR:backups/local}
+      interval-ms: ${SACCO_BACKUP_LOCAL_INTERVAL_MS:3600000}
+      initial-delay-ms: ${SACCO_BACKUP_LOCAL_INITIAL_DELAY_MS:120000}
+    # Tier 2: connected external USB / mounted drive. Point this at E:\SCMS-Backups
+    # or /media/usb/scms in production.
+    external:
+      directory: ${SACCO_BACKUP_EXTERNAL_DIR:backups/external}
+    # Tier 3: QUEUE_ONLY persists jobs until a cloud target is configured;
+    # DIRECTORY copies to a cloud sync folder; HTTP uploads multipart/form-data.
+    cloud:
+      mode: ${SACCO_BACKUP_CLOUD_MODE:QUEUE_ONLY}
+      directory: ${SACCO_BACKUP_CLOUD_DIR:backups/cloud}
+      endpoint: ${SACCO_BACKUP_CLOUD_ENDPOINT:}
+      retry-interval-ms: ${SACCO_BACKUP_CLOUD_RETRY_INTERVAL_MS:60000}
+      initial-delay-ms: ${SACCO_BACKUP_CLOUD_INITIAL_DELAY_MS:30000}
+    # Leave blank to auto-detect the PostgreSQL 16/15/14 installation.
+    pg-dump: ${SACCO_PG_DUMP:}
+
+spring:
+  datasource:
+    url: ${SACCO_DB_URL:jdbc:postgresql://localhost:8080/sacco_db}
+    username: ${SACCO_DB_USERNAME:postgres}
+    password: ${SACCO_DB_PASSWORD:postgres}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 25MB
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true

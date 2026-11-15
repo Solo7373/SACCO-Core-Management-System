@@ -1,0 +1,40 @@
+# Build output
+target/
+*.class
+*.jar
+*.war
+desktop/dist/
+
+# Runtime data
+backups/
+uploads/
+
+# Local environment files
+.env
+.env.*
+application-local.yml
+application-local.properties
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Vaadin generated files
+frontend/generated/
+node_modules/

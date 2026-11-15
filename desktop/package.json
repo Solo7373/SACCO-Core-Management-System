@@ -1,0 +1,53 @@
+{
+  "name": "sacco-core-management",
+  "version": "1.0.0",
+  "description": "SACCO Core Management System - Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:dir": "electron-builder --win --x64 --dir"
+  },
+  "build": {
+    "appId": "com.sacco.coremanagement",
+    "productName": "SCMS",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icon.ico"
+    ],
+    "extraResources": [
+      {
+        "from": "../target/sacco-core-management-1.0-SNAPSHOT.jar",
+        "to": "backend/sacco-core-management.jar"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SCMS",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
