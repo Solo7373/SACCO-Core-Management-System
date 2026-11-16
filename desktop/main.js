@@ -102,10 +102,10 @@ function startBackend() {
 }
 
 function checkBackendReady(callback, attempts = 0) {
-  if (attempts > 60) {
+  if (attempts > 180) {
     dialog.showErrorBox(
       'Startup Timeout',
-      'The backend server did not start within 60 seconds. Please check the logs and try again.'
+      'The backend server did not start within 3 minutes. Please check the logs and try again.'
     );
     app.quit();
     return;
@@ -126,6 +126,11 @@ function checkBackendReady(callback, attempts = 0) {
 }
 
 function createWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.focus();
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -140,7 +145,22 @@ function createWindow() {
     show: false
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${BACKEND_PORT}/`);
+  const appUrl = `http://127.0.0.1:${BACKEND_PORT}/`;
+
+  mainWindow.loadURL(appUrl);
+
+  // The backend can take up to a minute to start. If the first page load
+  // happens too early, retry instead of leaving Chromium's error page open.
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    if (validatedURL && validatedURL.startsWith(appUrl) && mainWindow && !mainWindow.isDestroyed()) {
+      console.log(`Page load failed (${errorCode} ${errorDescription}); retrying...`);
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.loadURL(appUrl);
+        }
+      }, 1500);
+    }
+  });
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
@@ -174,7 +194,10 @@ app.on('before-quit', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+  // Do not open a window before the backend is ready. On Windows this event
+  // can fire while startup is still in progress and would show a connection
+  // error page.
+  if (backendReady && BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
 });
