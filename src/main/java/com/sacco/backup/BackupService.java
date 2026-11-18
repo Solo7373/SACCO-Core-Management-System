@@ -5,8 +5,13 @@ import com.sacco.auth.Permission;
 import com.sacco.auth.PermissionService;
 import com.sacco.backup.dto.BackupJobResponse;
 import com.sacco.backup.dto.BackupStatusResponse;
+import com.sacco.backup.dto.SetupBackupSummary;
 import com.sacco.backup.entity.BackupJob;
 import com.sacco.backup.repository.BackupJobRepository;
+import com.sacco.setup.SystemSettingsService;
+import com.sacco.setup.entity.SystemSettings;
+import com.sacco.storage.drive.DriveUploadResult;
+import com.sacco.storage.drive.GoogleDriveService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +31,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.HexFormat;
@@ -52,15 +58,14 @@ public class BackupService {
     private final BackupJobRepository backupJobRepository;
     private final PermissionService permissionService;
     private final AuditService auditService;
+    private final GoogleDriveService googleDriveService;
+    private final SystemSettingsService systemSettingsService;
 
     @Value("${sacco.backup.local.directory:backups/local}")
     private String localDirectory;
 
     @Value("${sacco.backup.external.directory:backups/external}")
     private String externalDirectory;
-
-    @Value("${sacco.backup.cloud.mode:QUEUE_ONLY}")
-    private String cloudMode;
 
     @Value("${sacco.backup.cloud.directory:backups/cloud}")
     private String cloudDirectory;
@@ -70,6 +75,9 @@ public class BackupService {
 
     @Value("${sacco.backup.cloud.retry-interval-ms:60000}")
     private long cloudRetryIntervalMs;
+
+    @Value("${sacco.backup.scheduler.enabled:true}")
+    private boolean automaticSchedulerEnabled;
 
     @Value("${sacco.backup.pg-dump:}")
     private String configuredPgDump;
@@ -120,10 +128,49 @@ public class BackupService {
         return processQueueInternal();
     }
 
+    /**
+     * Runs a backup from the setup wizard while the normal backup API is still
+     * gated by the first-run setup guard. SetupService enforces administrator
+     * access before this method is called.
+     */
+    public BackupStatusResponse runSetupBackup(Long actorId) {
+        executeFullBackup(actorId == null ? 0L : actorId, true);
+        return buildStatus();
+    }
+
+    /**
+     * Compact status for the setup wizard. It deliberately avoids the
+     * {@code pg_dump --version} probe so opening the wizard stays cheap.
+     */
+    public SetupBackupSummary setupSummary() {
+        BackupJob last = lastLocalBackup();
+        return SetupBackupSummary.builder()
+                .automaticEnabled(systemSettingsService.isAutomaticBackupEnabled())
+                .schedule(systemSettingsService.backupSchedule())
+                .nextBackupAt(nextBackupAt())
+                .retentionDays(systemSettingsService.backupRetentionDays())
+                .cloudMode(normalizedCloudMode())
+                .cloudTarget(cloudTarget())
+                .cloudConfigured(isCloudConfigured())
+                .lastBackupFile(last == null ? null : last.getFileName())
+                .lastBackupStatus(last == null ? null : last.getStatus())
+                .lastBackupAt(last == null ? null : last.getCompletedAt())
+                .lastBackupSizeBytes(last == null ? null : last.getSizeBytes())
+                .lastError(last == null ? null : last.getErrorMessage())
+                .queuedCloudJobs(backupJobRepository.countByTierAndStatusIn("CLOUD", CLOUD_ACTIVE_STATUSES))
+                .build();
+    }
+
     @Scheduled(
-            initialDelayString = "${sacco.backup.local.initial-delay-ms:120000}",
-            fixedDelayString = "${sacco.backup.local.interval-ms:3600000}")
-    public void scheduledBackup() {
+            initialDelayString = "${sacco.backup.scheduler.initial-delay-ms:60000}",
+            fixedDelayString = "${sacco.backup.scheduler.check-interval-ms:60000}")
+    public void scheduledAutomaticBackup() {
+        if (!automaticSchedulerEnabled || !systemSettingsService.isAutomaticBackupEnabled()) {
+            return;
+        }
+        if (!isAutomaticBackupDue()) {
+            return;
+        }
         executeFullBackup(0L, false);
     }
 
@@ -147,6 +194,7 @@ public class BackupService {
                 mirrorToExternal(snapshot, actorId);
                 enqueueCloud(snapshot, actorId);
                 processQueueInternal();
+                pruneExpiredSnapshots(actorId);
             }
         } finally {
             backupRunning.set(false);
@@ -347,8 +395,13 @@ public class BackupService {
                 }
                 uploadHttp(source, job);
                 job.setTargetPath(cloudEndpoint);
+            } else if ("GOOGLE_DRIVE".equals(mode)) {
+                DriveUploadResult result = googleDriveService.uploadBackup(source, job.getFileName());
+                job.setTargetPath(result.webViewLink() != null && !result.webViewLink().isBlank()
+                        ? result.webViewLink()
+                        : "Google Drive file " + result.fileId());
             } else {
-                throw new IOException("Unknown cloud backup mode: " + cloudMode);
+                throw new IOException("Unknown cloud backup mode: " + mode);
             }
 
             job.setStatus("COMPLETED");
@@ -422,6 +475,11 @@ public class BackupService {
                 .cloudMode(normalizedCloudMode())
                 .cloudTarget(cloudTarget())
                 .cloudConfigured(isCloudConfigured())
+                .automaticBackupsEnabled(systemSettingsService.isAutomaticBackupEnabled())
+                .backupSchedule(systemSettingsService.backupSchedule())
+                .nextBackupAt(nextBackupAt())
+                .retentionDays(systemSettingsService.backupRetentionDays())
+                .backupRunning(backupRunning.get())
                 .pgDumpAvailable(isPgDumpAvailable())
                 .pgDumpPath(resolvePgDump())
                 .queuedCloudJobs(queued)
@@ -441,15 +499,107 @@ public class BackupService {
     }
 
     private String normalizedCloudMode() {
-        return cloudMode == null || cloudMode.isBlank()
-                ? "QUEUE_ONLY"
-                : cloudMode.trim().toUpperCase(Locale.ROOT);
+        return systemSettingsService.effectiveBackupMode();
+    }
+
+    private BackupJob lastLocalBackup() {
+        return backupJobRepository
+                .findFirstByTierAndStatusOrderByCreatedAtDesc("LOCAL", "COMPLETED")
+                .orElse(null);
+    }
+
+    private boolean isAutomaticBackupDue() {
+        LocalDateTime next = nextBackupAt();
+        return next == null || !LocalDateTime.now().isBefore(next);
+    }
+
+    /**
+     * Next time the background scheduler should take a snapshot. When the
+     * application was closed past the due time this returns a moment in the
+     * past, so the next scheduler tick catches up immediately.
+     */
+    private LocalDateTime nextBackupAt() {
+        if (!systemSettingsService.isAutomaticBackupEnabled()) {
+            return null;
+        }
+        BackupJob last = lastLocalBackup();
+        if (last == null) {
+            return LocalDateTime.now();
+        }
+        LocalDateTime anchor = last.getCompletedAt() != null
+                ? last.getCompletedAt()
+                : last.getCreatedAt();
+        if (anchor == null) {
+            return LocalDateTime.now();
+        }
+        return anchor.plus(BackupSchedule.from(systemSettingsService.backupSchedule()).interval());
+    }
+
+    /**
+     * Keeps a rolling window of snapshots, like WhatsApp replacing old
+     * backups. Only files created by this engine are considered.
+     */
+    private void pruneExpiredSnapshots(Long actorId) {
+        int retentionDays = systemSettingsService.backupRetentionDays();
+        if (retentionDays <= 0) {
+            return;
+        }
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(retentionDays);
+        int removed = pruneDirectory(localDirectory, cutoff)
+                + pruneDirectory(externalDirectory, cutoff);
+        if (removed > 0) {
+            auditService.logEvent(actorId, "BACKUP_RETENTION_PRUNED", "BACKUP_JOB", 0L,
+                    "Removed " + removed + " snapshot(s) older than " + retentionDays + " days");
+            log.info("Backup retention removed {} snapshot(s) older than {} days",
+                    removed, retentionDays);
+        }
+    }
+
+    private int pruneDirectory(String directory, LocalDateTime cutoff) {
+        if (directory == null || directory.isBlank()) {
+            return 0;
+        }
+        Path dir = Path.of(directory).toAbsolutePath().normalize();
+        if (!Files.isDirectory(dir)) {
+            return 0;
+        }
+        int removed = 0;
+        try (var files = Files.list(dir)) {
+            List<Path> expired = files
+                    .filter(Files::isRegularFile)
+                    .filter(path -> {
+                        String name = path.getFileName().toString();
+                        return name.startsWith("sacco_") && name.endsWith(".sql");
+                    })
+                    .filter(path -> {
+                        try {
+                            return Files.getLastModifiedTime(path).toInstant()
+                                    .isBefore(cutoff.atZone(ZoneId.systemDefault()).toInstant());
+                        } catch (IOException ex) {
+                            return false;
+                        }
+                    })
+                    .toList();
+            for (Path path : expired) {
+                try {
+                    Files.deleteIfExists(path);
+                    removed++;
+                } catch (IOException ex) {
+                    log.warn("Could not prune expired backup {}: {}", path, ex.getMessage());
+                }
+            }
+        } catch (IOException ex) {
+            log.warn("Could not inspect backup directory {} for retention: {}",
+                    dir, ex.getMessage());
+        }
+        return removed;
     }
 
     private boolean isCloudConfigured() {
         return switch (normalizedCloudMode()) {
             case "DIRECTORY" -> cloudDirectory != null && !cloudDirectory.isBlank();
             case "HTTP" -> cloudEndpoint != null && !cloudEndpoint.isBlank();
+            case "GOOGLE_DRIVE" -> googleDriveService.isConfigured();
             default -> false;
         };
     }
@@ -458,6 +608,13 @@ public class BackupService {
         return switch (normalizedCloudMode()) {
             case "DIRECTORY" -> cloudDirectory;
             case "HTTP" -> cloudEndpoint;
+            case "GOOGLE_DRIVE" -> {
+                SystemSettings settings = systemSettingsService.getExisting();
+                String folderId = settings == null ? null : settings.getDriveFolderId();
+                yield folderId == null || folderId.isBlank()
+                        ? "Google Drive (folder not configured)"
+                        : "Google Drive folder " + folderId;
+            }
             default -> "Persistent PostgreSQL queue (awaiting cloud configuration)";
         };
     }

@@ -4,6 +4,7 @@ target/
 *.jar
 *.war
 desktop/dist/
+frontend/dist/
 
 # Runtime data
 backups/

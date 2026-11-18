@@ -52,6 +52,7 @@ public class PermissionService {
         EnumSet<Permission> manager = EnumSet.allOf(Permission.class);
         manager.remove(Permission.AUDIT_VIEW);
         manager.remove(Permission.COMPLIANCE_VIEW);
+        manager.remove(Permission.SETTINGS_MANAGE);
         map.put("MANAGER", manager);
 
         map.put("TELLER", EnumSet.of(
@@ -71,7 +72,9 @@ public class PermissionService {
                 Permission.SMS_VIEW,
                 Permission.SMS_SEND,
                 Permission.WHATSAPP_VIEW,
-                Permission.WHATSAPP_SEND
+                Permission.WHATSAPP_SEND,
+                Permission.EMAIL_VIEW,
+                Permission.EMAIL_SEND
         ));
 
         map.put("LOAN_OFFICER", EnumSet.of(
@@ -91,7 +94,9 @@ public class PermissionService {
                 Permission.SMS_VIEW,
                 Permission.SMS_SEND,
                 Permission.WHATSAPP_VIEW,
-                Permission.WHATSAPP_SEND
+                Permission.WHATSAPP_SEND,
+                Permission.EMAIL_VIEW,
+                Permission.EMAIL_SEND
         ));
 
         // Auditor workspace: compliance exports plus the control-role ability
@@ -115,7 +120,8 @@ public class PermissionService {
                 Permission.MEMBER_RESTORE,
                 Permission.BACKUP_VIEW,
                 Permission.SMS_VIEW,
-                Permission.WHATSAPP_VIEW
+                Permission.WHATSAPP_VIEW,
+                Permission.EMAIL_VIEW
         ));
 
         map.put("MEMBER", EnumSet.of(

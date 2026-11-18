@@ -279,6 +279,12 @@ AT sends form-urlencoded callbacks by default; the parser also accepts JSON.
 
 ### 5.1 Get sandbox credentials
 
+| Resource | Link |
+| --- | --- |
+| Production dashboard | https://account.africastalking.com |
+| Sandbox dashboard | https://account.sandbox.africastalking.com |
+| API documentation | https://developers.africastalking.com |
+
 1. Create/sign in to an Africa's Talking account.
 2. Open the Sandbox app and copy the API key.
 3. Use `AT_USERNAME=sandbox`, `AT_SANDBOX=true`.

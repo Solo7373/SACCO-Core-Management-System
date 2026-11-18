@@ -14,6 +14,7 @@ function Layout({ onLogout }) {
   const canViewFinance = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'AUDITOR'].includes(role)
   const canViewCompliance = ['ADMIN', 'RECOVERY_ADMIN', 'AUDITOR'].includes(role)
   const canViewBackups = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'AUDITOR'].includes(role)
+  const canManageSettings = ['ADMIN', 'RECOVERY_ADMIN'].includes(role)
   const canViewCollections = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'TELLER', 'LOAN_OFFICER', 'AUDITOR'].includes(role)
   const isMemberPortal = role === 'MEMBER'
 
@@ -111,6 +112,7 @@ function Layout({ onLogout }) {
           {!isMemberPortal && canViewCompliance && <NavLink to="/compliance">Compliance</NavLink>}
           {!isMemberPortal && canViewReports && <NavLink to="/reports">Reports</NavLink>}
           {!isMemberPortal && canViewBackups && <NavLink to="/backups">Backups</NavLink>}
+          {!isMemberPortal && canManageSettings && <NavLink to="/settings">System Settings</NavLink>}
           {!isMemberPortal && canManageUsers && <NavLink to="/users">Users</NavLink>}
         </nav>
         <button className="logout-btn" onClick={handleLogout}>Logout</button>

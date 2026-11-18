@@ -33,6 +33,7 @@ import com.sacco.report.dto.FinancialLineResponse;
 import com.sacco.report.dto.IncomeExpenditureResponse;
 import com.sacco.savings.SavingsService;
 import com.sacco.savings.entity.SavingsTransaction;
+import com.sacco.setup.SystemSettingsService;
 import com.sacco.savings.repository.SavingsTransactionRepository;
 import com.sacco.share.entity.ShareProduct;
 import com.sacco.share.entity.ShareTransaction;
@@ -55,6 +56,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -78,6 +80,7 @@ public class ReportingService {
     private final SavingsService savingsService;
     private final ChartOfAccountsRepository chartOfAccountsRepository;
     private final JournalLineRepository journalLineRepository;
+    private final SystemSettingsService systemSettingsService;
 
     @Transactional(readOnly = true)
     public List<TrialBalanceResponse> getTrialBalance(LocalDate asOfDate) {
@@ -172,7 +175,8 @@ public class ReportingService {
     public byte[] getMemberStatementCsv(Long memberId) {
         MemberStatement statement = buildMemberStatement(memberId);
         StringBuilder sb = new StringBuilder();
-        appendRow(sb, "SACCO CORE MANAGEMENT SYSTEM - MEMBER STATEMENT");
+        appendRow(sb, systemSettingsService.organizationName().toUpperCase(Locale.ROOT)
+                + " - MEMBER STATEMENT");
         appendRow(sb, "Generated", DATETIME_FORMAT.format(statement.generatedAt));
         appendRow(sb, "Member", statement.memberName);
         appendRow(sb, "Membership No", statement.membershipNo);
@@ -238,11 +242,26 @@ public class ReportingService {
             Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 8, Color.BLACK);
             Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Color.WHITE);
 
-            Paragraph title = new Paragraph("SACCO Core Management System", titleFont);
+            Paragraph title = new Paragraph(systemSettingsService.organizationName(), titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
             document.add(title);
+
+            String contactLine = systemSettingsService.organizationContactLine();
+            if (!contactLine.isBlank()) {
+                Paragraph contact = new Paragraph(contactLine, subtitleFont);
+                contact.setAlignment(Element.ALIGN_CENTER);
+                document.add(contact);
+            }
+            String addressLine = systemSettingsService.organizationAddressLine();
+            if (!addressLine.isBlank()) {
+                Paragraph address = new Paragraph(addressLine, subtitleFont);
+                address.setAlignment(Element.ALIGN_CENTER);
+                document.add(address);
+            }
+
             Paragraph subtitle = new Paragraph("Member Financial Statement", subtitleFont);
             subtitle.setAlignment(Element.ALIGN_CENTER);
+            subtitle.setSpacingBefore(4);
             subtitle.setSpacingAfter(14);
             document.add(subtitle);
 

@@ -16,6 +16,7 @@ import com.sacco.finance.dto.TaxBreakdownRow;
 import com.sacco.finance.dto.TransactionSheetResponse;
 import com.sacco.finance.dto.TransactionSheetRow;
 import com.sacco.finance.export.SimpleXlsxWriter;
+import com.sacco.setup.SystemSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -60,6 +61,7 @@ public class ComplianceExportService {
             DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm:ss");
 
     private final ComplianceService complianceService;
+    private final SystemSettingsService systemSettingsService;
 
     public ExportFile exportTransactions(LocalDate fromDate, LocalDate toDate,
             String transactionType, String channel, String format, Long actorId) {
@@ -340,7 +342,7 @@ public class ComplianceExportService {
 
     private void addTitle(Document document, String title, String subtitle, String meta, Fonts fonts)
             throws Exception {
-        Paragraph heading = new Paragraph("SACCO Core Management System", fonts.title);
+        Paragraph heading = new Paragraph(systemSettingsService.organizationName(), fonts.title);
         heading.setAlignment(Element.ALIGN_CENTER);
         document.add(heading);
 

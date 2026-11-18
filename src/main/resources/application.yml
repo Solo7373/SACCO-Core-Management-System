@@ -86,18 +86,48 @@ sacco:
       max-backoff-ms: ${WA_DISPATCH_MAX_BACKOFF_MS:3600000}
       stale-sending-seconds: ${WA_DISPATCH_STALE_SENDING_SECONDS:600}
       bulk-limit: ${WA_BULK_LIMIT:200}
+  # First-run setup gate. When true, business APIs return 428 until the
+  # setup wizard has been completed. Login, setup, webhooks and OTP remain
+  # reachable so the system can be commissioned safely.
+  setup:
+    enforce: ${SACCO_SETUP_ENFORCE:true}
+  # Google Drive storage. The setup wizard stores the effective values in the
+  # database; these environment values are the fallback for scripted installs.
+  google-drive:
+    enabled: ${GDRIVE_ENABLED:false}
+    auth-mode: ${GDRIVE_AUTH_MODE:SERVICE_ACCOUNT}
+    base-url: ${GDRIVE_BASE_URL:https://www.googleapis.com}
+    token-uri: ${GDRIVE_TOKEN_URI:https://oauth2.googleapis.com/token}
+    folder-id: ${GDRIVE_FOLDER_ID:}
+    application-name: ${GDRIVE_APPLICATION_NAME:SCMS}
+    credentials-file: ${GDRIVE_CREDENTIALS_FILE:}
+    # Defaults to ~/.sacco/secrets when blank. Never point this inside the repo.
+    secrets-dir: ${GDRIVE_SECRETS_DIR:}
+    timeout-ms: ${GDRIVE_TIMEOUT_MS:30000}
+  # Gmail API sending. The same Google OAuth refresh token used for Drive
+  # backups also sends member email, so the Drive account is the sender.
+  gmail:
+    enabled: ${GMAIL_ENABLED:true}
+    base-url: ${GMAIL_BASE_URL:https://gmail.googleapis.com}
+    timeout-ms: ${GMAIL_TIMEOUT_MS:30000}
   backup:
-    # Tier 1: continuous local PostgreSQL snapshots.
+    # Automatic (WhatsApp-style) background backups. The cadence is chosen in
+    # first-run setup (HOURLY/DAILY/WEEKLY); this scheduler only checks whether
+    # a complete snapshot is due and catches up after downtime.
+    scheduler:
+      enabled: ${SACCO_BACKUP_SCHEDULER_ENABLED:true}
+      initial-delay-ms: ${SACCO_BACKUP_SCHEDULER_INITIAL_DELAY_MS:60000}
+      check-interval-ms: ${SACCO_BACKUP_SCHEDULER_CHECK_INTERVAL_MS:60000}
+    # Tier 1: complete PostgreSQL snapshots stored on the host disk.
     local:
       directory: ${SACCO_BACKUP_LOCAL_DIR:backups/local}
-      interval-ms: ${SACCO_BACKUP_LOCAL_INTERVAL_MS:3600000}
-      initial-delay-ms: ${SACCO_BACKUP_LOCAL_INITIAL_DELAY_MS:120000}
     # Tier 2: connected external USB / mounted drive. Point this at E:\SCMS-Backups
     # or /media/usb/scms in production.
     external:
       directory: ${SACCO_BACKUP_EXTERNAL_DIR:backups/external}
     # Tier 3: QUEUE_ONLY persists jobs until a cloud target is configured;
-    # DIRECTORY copies to a cloud sync folder; HTTP uploads multipart/form-data.
+    # GOOGLE_DRIVE uploads to the configured Drive folder; DIRECTORY copies to
+    # a cloud sync folder; HTTP uploads multipart/form-data.
     cloud:
       mode: ${SACCO_BACKUP_CLOUD_MODE:QUEUE_ONLY}
       directory: ${SACCO_BACKUP_CLOUD_DIR:backups/cloud}

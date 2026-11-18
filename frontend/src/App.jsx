@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -16,6 +16,8 @@ import Inventory from './pages/Inventory'
 import Compliance from './pages/Compliance'
 import FinanceSettings from './pages/FinanceSettings'
 import Backups from './pages/Backups'
+import Setup from './pages/Setup'
+import { api } from './services/api'
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -30,6 +32,81 @@ function App() {
     }
     return null
   })
+  const [setup, setSetup] = useState({ loading: true, status: null, error: null })
+
+  useEffect(() => {
+    refreshSetup()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function refreshSetup() {
+    setSetup(previous => ({ ...previous, loading: true, error: null }))
+    try {
+      const status = await api.getSetupStatus()
+      setSetup({ loading: false, status, error: null })
+    } catch (err) {
+      setSetup({
+        loading: false,
+        status: null,
+        error: err.message || 'Could not read the system setup status.'
+      })
+    }
+  }
+
+  function handleSetupComplete(status) {
+    setSetup({ loading: false, status, error: null })
+  }
+
+  if (setup.loading) {
+    return (
+      <div className="setup-page">
+        <div className="setup-shell">
+          <div className="loading">Checking system setup…</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (setup.error) {
+    return (
+      <div className="setup-page">
+        <div className="setup-shell">
+          <div className="card setup-card">
+            <div className="setup-section-heading">
+              <h2>The system is not reachable</h2>
+              <p>{setup.error}</p>
+            </div>
+            <div className="setup-actions">
+              <button type="button" className="btn btn-primary" onClick={refreshSetup}>
+                Try again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (setup.status?.setupRequired) {
+    // An existing administrator must sign in before the setup wizard can
+    // change the organisation, sender identities or billing account.
+    if (!user && setup.status.adminConfigured) {
+      return (
+        <Login
+          onLogin={setUser}
+          noticeText="System setup is not complete. Sign in with the administrator account to finish the go-live configuration."
+        />
+      )
+    }
+    return (
+      <Setup
+        initialStatus={setup.status}
+        embedded={Boolean(user)}
+        onLogin={setUser}
+        onComplete={handleSetupComplete}
+      />
+    )
+  }
 
   if (!user) {
     return <Login onLogin={setUser} />
@@ -52,6 +129,27 @@ function App() {
         <Route path="/backups" element={<Backups />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/users" element={<Users />} />
+        <Route
+          path="/settings"
+          element={
+            <Setup
+              embedded
+              liveMode
+              initialStatus={setup.status}
+              onComplete={handleSetupComplete}
+            />
+          }
+        />
+        <Route
+          path="/setup"
+          element={
+            <Setup
+              embedded
+              initialStatus={setup.status}
+              onComplete={handleSetupComplete}
+            />
+          }
+        />
       </Route>
     </Routes>
   )

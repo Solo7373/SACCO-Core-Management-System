@@ -11,6 +11,14 @@ API. They share no credentials, billing, or failure handling:
 | Config prefix | `sacco.whatsapp` / `WA_*` | `sacco.google-drive` / `GDRIVE_*` |
 | Java package | `com.sacco.communication` | `com.sacco.storage.drive` |
 
+> **Implemented:** the first-run setup wizard now stores the Drive folder and
+> protected credential path, verifies the connection, and selects Google Drive
+> as the Tier 3 backup target. The same OAuth refresh token can also send
+> member email through the Gmail API (`gmail.send`), using the Google account
+> selected in setup as the sender. See [`system-setup.md`](system-setup.md).
+> Backups are the first phase; member document and WhatsApp media archiving
+> remain planned.
+
 ---
 
 ## 1. What Drive will be used for
@@ -93,47 +101,65 @@ Best for backups and unattended server uploads.
 > Service accounts do not have a normal Gmail mailbox. On a personal Gmail
 > account, uploads to a folder shared with a service account can hit storage
 > quota limits. For production, use a Google Workspace Shared Drive, or use
-> Option B.
+> Option B. If the SACCO needs email reminders, Option B is required because
+> Gmail sending is only available through OAuth.
 
 ### Option B — OAuth refresh token for the SACCO Google account
 
-Best when the SACCO uses a personal Gmail account and wants files owned by that
-account.
+Best when the SACCO uses a personal Gmail account, wants files owned by that
+account, and wants the same account to send member email.
 
-1. Create a Google Cloud project and enable the Drive API.
+1. Create a Google Cloud project and enable the **Google Drive API** and
+   **Gmail API**.
 2. Configure the OAuth consent screen (Internal or External/Testing).
 3. Create an OAuth client of type **Desktop app**.
-4. Authorize the `https://www.googleapis.com/auth/drive.file` scope once and
-   obtain a **refresh token**.
-5. Store the client ID, client secret, and refresh token outside the repository.
+4. Authorize both scopes once:
+   - `https://www.googleapis.com/auth/drive`
+   - `https://www.googleapis.com/auth/gmail.send`
+5. Exchange the authorization code for a **refresh token**.
+6. Store the client ID, client secret, and refresh token outside the repository.
 
-The server exchanges the refresh token for short-lived access tokens. No browser
-is needed after the initial consent.
+The server exchanges the refresh token for short-lived access tokens and caches
+them for both Drive uploads and Gmail sending. No browser is needed after the
+initial consent. The `gmail.send` scope only allows sending; it does not grant
+read access to the mailbox.
+
+> The setup wizard validates the mailbox with a Gmail profile request and can
+> send a real test message. A refresh token created without `gmail.send` will
+> connect for Drive but fail the email test; recreate the token with both
+> scopes.
 
 ---
 
-## 3. Planned environment variables
+## 3. Environment variables
 
 ```text
 GDRIVE_ENABLED=true
-GDRIVE_AUTH_MODE=SERVICE_ACCOUNT        # or OAUTH
-GDRIVE_CREDENTIALS_FILE=C:\SCMS-Secrets\google-service-account.json
+GDRIVE_AUTH_MODE=OAUTH                   # or SERVICE_ACCOUNT / MOCK
+GDRIVE_CREDENTIALS_FILE=C:\SCMS-Secrets\google-oauth.json
 GDRIVE_FOLDER_ID=1AbCdEfGhIjKlMnOpQrStUvWxYz
 GDRIVE_APPLICATION_NAME=SCMS
 GDRIVE_TIMEOUT_MS=30000
 
-# OAuth mode only
+# OAuth mode only: the wizard stores these in the protected secrets file.
 GDRIVE_CLIENT_ID=...
 GDRIVE_CLIENT_SECRET=...
 GDRIVE_REFRESH_TOKEN=...
+
+# Gmail sending (uses the same OAuth credentials)
+GMAIL_ENABLED=true
+GMAIL_BASE_URL=https://gmail.googleapis.com
+GMAIL_TIMEOUT_MS=30000
 
 # Backup integration
 SACCO_BACKUP_CLOUD_MODE=GOOGLE_DRIVE
 SACCO_BACKUP_CLOUD_GOOGLE_DRIVE_FOLDER_ID=1AbCdEfGhIjKlMnOpQrStUvWxYz
 ```
 
-Never commit the JSON key or refresh token. Add the secrets directory to
-`.gitignore`.
+The setup wizard writes `client_id`, `client_secret` and `refresh_token` to
+`GDRIVE_SECRETS_DIR`; the `GDRIVE_CLIENT_*` and `GDRIVE_REFRESH_TOKEN`
+environment variables are only fallbacks for scripted installs. Never commit
+the JSON key or refresh token. Add the secrets directory to `.gitignore`.
 
 ---
 
@@ -212,6 +238,16 @@ GDRIVE_FOLDER_ID=mock-folder
 SACCO_BACKUP_CLOUD_MODE=GOOGLE_DRIVE
 ```
 
-The mock implements the Drive token, metadata, and upload endpoints and stores
-files in a local directory. This lets the backup queue, retries, audit events,
-and UI status be tested end to end with zero Google cost.
+The mock implements the Drive token, metadata, and upload endpoints, the Gmail
+profile and send endpoints, and a `/gmail/messages` inspection endpoint. This
+lets the backup queue, retries, audit events, and email UI be tested end to end
+with zero Google cost.
+
+```text
+GDRIVE_AUTH_MODE=MOCK
+GDRIVE_BASE_URL=http://localhost:9098
+GMAIL_BASE_URL=http://localhost:9098
+```
+
+The mock Gmail account defaults to `sacco@gmail.com`. Override it with
+`MOCK_GMAIL_ACCOUNT` when starting `mock-drive.js`.

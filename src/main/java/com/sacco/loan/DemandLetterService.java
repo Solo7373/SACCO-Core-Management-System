@@ -17,6 +17,8 @@ import com.sacco.loan.entity.Loan;
 import com.sacco.loan.entity.LoanDemand;
 import com.sacco.loan.entity.LoanProduct;
 import com.sacco.member.entity.Member;
+import com.sacco.setup.SystemSettingsService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.awt.Color;
@@ -34,7 +36,10 @@ import java.util.Locale;
  * copy can be reconciled with the collections register.
  */
 @Service
+@RequiredArgsConstructor
 public class DemandLetterService {
+
+    private final SystemSettingsService systemSettingsService;
 
     private static final Color NAVY = new Color(26, 35, 50);
     private static final Color ORANGE = new Color(230, 81, 0);
@@ -70,13 +75,20 @@ public class DemandLetterService {
             Font tableBodyBold = FontFactory.getFont(FontFactory.HELVETICA, 8, Font.BOLD, NAVY);
             Font alert = FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, RED);
 
-            Paragraph organisation = new Paragraph("SACCO CORE MANAGEMENT SYSTEM", title);
+            Paragraph organisation = new Paragraph(
+                    systemSettingsService.organizationName().toUpperCase(Locale.ROOT), title);
             organisation.setSpacingAfter(2f);
             document.add(organisation);
+            String contactLine = systemSettingsService.organizationContactLine();
             Paragraph department = new Paragraph(
                     "Member Credit & Collections Department", subtitle);
-            department.setSpacingAfter(10f);
+            department.setSpacingAfter(contactLine.isBlank() ? 10f : 2f);
             document.add(department);
+            if (!contactLine.isBlank()) {
+                Paragraph contact = new Paragraph(contactLine, subtitle);
+                contact.setSpacingAfter(10f);
+                document.add(contact);
+            }
 
             PdfPTable rule = new PdfPTable(1);
             rule.setWidthPercentage(100);

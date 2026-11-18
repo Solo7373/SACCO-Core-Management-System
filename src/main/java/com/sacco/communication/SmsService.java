@@ -16,6 +16,8 @@ import com.sacco.communication.exception.SmsValidationException;
 import com.sacco.communication.repository.IncomingSmsRepository;
 import com.sacco.communication.repository.SmsMessageRepository;
 import com.sacco.communication.repository.SmsOptOutRepository;
+import com.sacco.setup.SystemSettingsService;
+import com.sacco.setup.entity.SystemSettings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -44,6 +46,7 @@ public class SmsService {
     private final SmsDeliveryService deliveryService;
     private final AuditService auditService;
     private final PermissionService permissionService;
+    private final SystemSettingsService systemSettingsService;
 
     public SmsMessageResponse sendSingle(SmsSendRequest request, Long actorId) {
         permissionService.require(actorId, Permission.SMS_SEND);
@@ -261,7 +264,14 @@ public class SmsService {
         String sender = requested == null || requested.isBlank()
                 ? properties.getSenderId()
                 : requested.trim();
-        return sender == null || sender.isBlank() ? null : sender;
+        if (sender == null || sender.isBlank()) {
+            // The first-run setup records the sender identity members see on
+            // loan instalment reminders. Environment configuration still wins
+            // when it is present, so scripted deployments keep working.
+            SystemSettings settings = systemSettingsService.getExisting();
+            sender = settings == null ? null : settings.getSmsSenderId();
+        }
+        return sender == null || sender.isBlank() ? null : sender.trim();
     }
 
     private SmsMessage.SmsMessageType typeOrDefault(SmsMessage.SmsMessageType type) {

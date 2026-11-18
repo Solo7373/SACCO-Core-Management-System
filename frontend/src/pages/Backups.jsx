@@ -153,8 +153,8 @@ function Backups() {
         <div>
           <h2>Backup & Resilience</h2>
           <p className="page-subtitle">
-            Continuous local snapshots, external-drive mirroring and an outage-proof cloud queue.
-            Status refreshes automatically every 15 seconds.
+            Automatic WhatsApp-style snapshots of the complete database, external-drive
+            mirroring and an outage-proof cloud queue. Status refreshes every 15 seconds.
           </p>
         </div>
         <div className="header-actions">
@@ -212,6 +212,10 @@ function Backups() {
           <span>Failed jobs</span>
           <strong className={summary.failed > 0 ? 'text-danger' : ''}>{summary.failed}</strong>
         </div>
+        <div className={`backup-summary-chip ${status?.automaticBackupsEnabled ? 'chip-ok' : 'chip-bad'}`}>
+          <span>Automatic backups</span>
+          <strong>{status?.automaticBackupsEnabled ? (status?.backupSchedule || 'HOURLY') : 'Paused'}</strong>
+        </div>
         <div className={`backup-summary-chip ${status?.pgDumpAvailable ? 'chip-ok' : 'chip-bad'}`}>
           <span>pg_dump</span>
           <strong>{status?.pgDumpAvailable ? 'Detected' : 'Not found'}</strong>
@@ -228,12 +232,15 @@ function Backups() {
             <span className={`backup-state ${localState.className}`}>{localState.label}</span>
           </div>
           <p className="backup-tier-copy">
-            Scheduled <code>pg_dump</code> snapshots stored on the host disk. These are the primary
-            recovery points and are checksummed with SHA-256.
+            Scheduled <code>pg_dump</code> snapshots stored on the host disk. Each snapshot is the
+            complete database, including member records and contact names, savings, loans, SMS and
+            WhatsApp messages. Snapshots are checksummed with SHA-256.
           </p>
           <dl className="backup-detail-list">
             <div><dt>Directory</dt><dd className="mono-cell">{status?.localDirectory || '—'}</dd></div>
             <div><dt>pg_dump path</dt><dd className="mono-cell">{status?.pgDumpPath || '—'}</dd></div>
+            <div><dt>Schedule</dt><dd>{status?.backupSchedule || 'HOURLY'} · next {formatDateTime(status?.nextBackupAt)}</dd></div>
+            <div><dt>Retention</dt><dd>{status?.retentionDays ?? 30} days</dd></div>
             <div><dt>Last snapshot</dt><dd>{formatDateTime(status?.lastLocalBackup?.createdAt)}</dd></div>
             <div><dt>Size</dt><dd>{formatBytes(status?.lastLocalBackup?.sizeBytes)}</dd></div>
             <div><dt>Checksum</dt><dd className="mono-cell">{shortChecksum(status?.lastLocalBackup?.checksum)}</dd></div>

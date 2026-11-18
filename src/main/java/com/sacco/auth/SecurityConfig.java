@@ -2,7 +2,6 @@ package com.sacco.auth;
 
 import com.sacco.auth.entity.User;
 import com.sacco.auth.repository.UserRepository;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +33,9 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                // First-run setup is public only until the setup row is
+                // completed. SetupService enforces SETTINGS_MANAGE afterwards.
+                .requestMatchers("/api/setup/**").permitAll()
                 // Africa's Talking cannot send a JWT. These endpoints are
                 // authenticated by SmsWebhookSecurity using a path token and
                 // an optional source-IP allowlist.
@@ -87,17 +89,4 @@ public class SecurityConfig {
         return provider;
     }
 
-    @PostConstruct
-    public void initAdminUser() {
-        if (!userRepository.existsByUsername("admin")) {
-            User admin = User.builder()
-                    .username("admin")
-                    .passwordHash(new BCryptPasswordEncoder().encode("admin123"))
-                    .email("admin@sacco.local")
-                    .role("ADMIN")
-                    .isActive(true)
-                    .build();
-            userRepository.save(admin);
-        }
-    }
 }

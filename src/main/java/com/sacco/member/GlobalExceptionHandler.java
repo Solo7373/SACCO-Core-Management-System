@@ -1,6 +1,9 @@
 package com.sacco.member;
 
 import com.sacco.auth.AccessDeniedException;
+import com.sacco.communication.email.EmailDeliveryException;
+import com.sacco.communication.email.EmailNotConfiguredException;
+import com.sacco.communication.email.EmailValidationException;
 import com.sacco.communication.exception.AfricasTalkingException;
 import com.sacco.communication.exception.OtpRateLimitException;
 import com.sacco.communication.exception.OtpVerificationException;
@@ -165,6 +168,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WhatsAppException.class)
     public ResponseEntity<ErrorResponse> handleWhatsApp(WhatsAppException ex) {
         log.warn("Meta WhatsApp request failed (retryable={}): {}", ex.isRetryable(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), ex.getMessage(), LocalDateTime.now()));
+    }
+
+    @ExceptionHandler(EmailValidationException.class)
+    public ResponseEntity<ErrorResponse> handleEmailValidation(EmailValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage(), LocalDateTime.now()));
+    }
+
+    @ExceptionHandler(EmailNotConfiguredException.class)
+    public ResponseEntity<ErrorResponse> handleEmailNotConfigured(EmailNotConfiguredException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), ex.getMessage(), LocalDateTime.now()));
+    }
+
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<ErrorResponse> handleEmailDelivery(EmailDeliveryException ex) {
+        log.warn("Gmail delivery failed: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), ex.getMessage(), LocalDateTime.now()));
     }

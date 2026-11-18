@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 
-function Login({ onLogin }) {
+function Login({ onLogin, noticeText = null }) {
   const [mode, setMode] = useState('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -88,6 +88,7 @@ function Login({ onLogin }) {
           <p>SACCO Core Management System</p>
         </div>
 
+        {noticeText && <div className="info-banner">{noticeText}</div>}
         {error && <div className="error-message">{error}</div>}
         {notice && <div className="success-message">{notice}</div>}
 
