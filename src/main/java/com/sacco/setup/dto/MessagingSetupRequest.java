@@ -47,6 +47,25 @@ public class MessagingSetupRequest {
     @Size(max = 2000)
     private String reminderTemplate;
 
+    /** Approved Meta WhatsApp utility template used for automated loan reminders, for example "loan_due_reminder". */
+    @Size(max = 200)
+    private String reminderWhatsappTemplate;
+
+    /** Language code of the approved WhatsApp reminder template, for example "en". */
+    @Size(max = 20)
+    private String reminderWhatsappLanguage;
+
+    /** Master switch for Africa Talking voice calls (mirrors AT_VOICE_ENABLED). */
+    private Boolean voiceEnabled;
+
+    /** Voice quiet hours start, 24-hour HH:mm, used to suppress calls. */
+    @Size(max = 5)
+    private String voiceQuietHoursStart;
+
+    /** Voice quiet hours end, 24-hour HH:mm, used to suppress calls. */
+    @Size(max = 5)
+    private String voiceQuietHoursEnd;
+
     private Boolean consentRequired;
 
     @Size(max = 500)

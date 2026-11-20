@@ -501,6 +501,11 @@ public class SetupService {
         settings.setConsentRequired(request.getConsentRequired() == null ? true : request.getConsentRequired());
         settings.setOptOutText(defaultIfBlank(request.getOptOutText(),
                 "Reply STOP to opt out of SMS reminders."));
+        settings.setReminderWhatsappTemplate(defaultIfBlank(request.getReminderWhatsappTemplate(), ""));
+        settings.setReminderWhatsappLanguage(defaultIfBlank(request.getReminderWhatsappLanguage(), "en"));
+        settings.setVoiceEnabled(request.getVoiceEnabled() == null ? false : request.getVoiceEnabled());
+        settings.setVoiceQuietHoursStart(defaultIfBlank(request.getVoiceQuietHoursStart(), "08:00"));
+        settings.setVoiceQuietHoursEnd(defaultIfBlank(request.getVoiceQuietHoursEnd(), "18:00"));
         settingsService.save(settings);
 
         audit("SETUP_MESSAGING_SAVED", "Communication senders and loan reminder policy updated");
@@ -633,12 +638,19 @@ public class SetupService {
             if (channels.contains("VOICE") && isBlank(settings.getVoiceCallerId())) {
                 missing.add("Voice caller ID");
             }
+            if (channels.contains("VOICE") && Boolean.FALSE.equals(settings.getVoiceEnabled())) {
+                missing.add("Africa Talking voice switch");
+            }
+            if (channels.contains("WHATSAPP") && isBlank(settings.getReminderWhatsappTemplate())) {
+                missing.add("Approved WhatsApp reminder template");
+            }
         }
         if (isBlank(settings.getReminderDaysBefore())) missing.add("Loan reminder schedule");
         if (isBlank(settings.getReminderTemplate())) missing.add("Loan reminder message template");
         if (Boolean.TRUE.equals(settings.getConsentRequired()) && isBlank(settings.getOptOutText())) {
             missing.add("Opt-out wording");
         }
+        if (settings.getReminderGraceDays() == null) missing.add("Loan reminder grace period");
 
         if (isBlank(settings.getBillingAccountName())) missing.add("Communication billing account name");
         if (isBlank(settings.getBillingAccountNumber())) missing.add("Communication billing account number");
@@ -711,6 +723,11 @@ public class SetupService {
                 .reminderSendTime(s.getReminderSendTime())
                 .reminderGraceDays(s.getReminderGraceDays())
                 .reminderTemplate(s.getReminderTemplate())
+                .reminderWhatsappTemplate(s.getReminderWhatsappTemplate())
+                .reminderWhatsappLanguage(s.getReminderWhatsappLanguage())
+                .voiceEnabled(s.getVoiceEnabled())
+                .voiceQuietHoursStart(s.getVoiceQuietHoursStart())
+                .voiceQuietHoursEnd(s.getVoiceQuietHoursEnd())
                 .consentRequired(s.getConsentRequired())
                 .optOutText(s.getOptOutText())
                 .build();

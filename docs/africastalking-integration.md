@@ -86,6 +86,32 @@ the JWT signing key for either.
 | `AT_OTP_WINDOW_MINUTES` | `15` | Rate-limit window |
 | `AT_OTP_REQUIRE_ACTIVE_MEMBER` | `false` | Only send OTPs to active members |
 
+### Voice (optional)
+
+Programmable voice is a separate Africa's Talking product. SMS credentials do
+not enable it by themselves.
+
+| Variable | Default | Meaning |
+|---|---:|---|
+| `AT_VOICE_ENABLED` | `false` | Master switch for outbound voice calls |
+| `AT_VOICE_API_KEY` | empty | Voice API key; falls back to `AT_API_KEY` when blank |
+| `AT_VOICE_BASE_URL` | production AT host | Override the voice host, for example a sandbox or mock |
+| `AT_VOICE_ENGINE` | `amazon` | TTS engine used by the `Say` action |
+| `AT_VOICE_VOICE_ID` | empty | Optional preferred TTS voice |
+| `AT_VOICE_TIMEOUT_MS` | `30000` | Voice API timeout |
+| `AT_VOICE_MAX_CALL_SECONDS` | `300` | Maximum call duration |
+
+A call also needs a caller ID. The **Reminders** page and the setup wizard store
+`voiceCallerId` in system settings; the reminder engine and the manual voice
+API both use it when a request omits `fromCallerId`. `AT_VOICE_API_KEY` must be
+present for the voice client to initialise — enabling the switch alone is not
+enough, and the API returns HTTP 502 with a configuration message instead of
+attempting a call.
+
+Voice reminders respect the quiet-hours window saved in setup (default
+`08:00`–`18:00` in the SACCO timezone). Attempts inside that window are recorded
+as `SKIPPED` with reason "Voice quiet hours".
+
 For production, set `AT_OTP_REQUIRE_ACTIVE_MEMBER=true` unless you have a public
 registration flow that must verify unregistered numbers. Consider a CAPTCHA or
 equivalent on the public OTP endpoint to reduce SMS pumping/toll fraud.
@@ -261,9 +287,11 @@ Security behaviour:
 ```
 POST /api/webhooks/africastalking/{AT_WEBHOOK_TOKEN}/delivery
 POST /api/webhooks/africastalking/{AT_WEBHOOK_TOKEN}/incoming
+POST /api/webhooks/africastalking/{AT_WEBHOOK_TOKEN}/voice
+POST /api/webhooks/africastalking/{AT_WEBHOOK_TOKEN}/calls
 ```
 
-Aliases: `/delivery-report` and `/incoming-message`.
+Aliases: `/delivery-report`, `/incoming-message` and `/calls` (voice).
 
 These endpoints are public to Spring Security because AT cannot attach a JWT.
 They are authenticated by the path token (constant-time comparison) and,
@@ -272,6 +300,37 @@ fail closed with 401. AT retries non-2xx responses; duplicate incoming messages
 are de-duplicated by provider message id and still acknowledged with 200.
 
 AT sends form-urlencoded callbacks by default; the parser also accepts JSON.
+
+### 4.6 Voice calls
+
+```
+POST /api/communications/voice/calls
+GET  /api/communications/voice/calls
+GET  /api/communications/voice/calls/{callId}
+GET  /api/communications/voice/calls/{callId}/events
+GET  /api/communications/voice/calls/summary
+POST /api/communications/voice/calls/{callId}/hangup
+```
+
+Initiate a call with text to be spoken:
+
+```bash
+curl -s -X POST http://127.0.0.1:8081/api/communications/voice/calls \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "toPhone": "+256772123456",
+        "script": "Hello, this is a reminder that your loan instalment is due. Please contact the SACCO office.",
+        "loanId": 1,
+        "memberId": 1
+      }' | jq
+```
+
+`fromCallerId` is optional; when omitted the caller ID saved in system settings
+is used. Requests are checked against `VOICE_SEND` (initiate/hangup) and
+`VOICE_VIEW` (history and summary), and each action is audited. The API returns
+HTTP 502 when voice is disabled or the API key is missing, and HTTP 400 when no
+caller ID is available. Callback events update the call timeline and status, so
+staff can see ringing, answered, completed and failed calls in **Reminders**.
 
 ---
 
@@ -407,6 +466,27 @@ curl -s http://127.0.0.1:8081/api/communications/otp/verify \
 In sandbox, read the code from the AT sandbox dashboard or the test handset.
 The application never logs the plaintext code.
 
+### 5.8 Test a voice call
+
+Set the voice variables, restart the application, then confirm the configuration
+is visible in the Reminders page (voice enabled, caller ID and quiet hours).
+Initiate a call with the curl request from section 4.6.
+
+Expected:
+
+- HTTP 200 and a new `voice_calls` row in `QUEUED` then `RINGING`.
+- No call attempt inside the configured quiet hours; the reminder engine records
+  `SKIPPED` instead.
+- A 502 with "Africa's Talking voice is not configured" when
+  `AT_VOICE_ENABLED=false` or `AT_VOICE_API_KEY`/`AT_API_KEY` is blank.
+- Callback events under `/voice` append to the call timeline. Point the voice
+  callback URL in the AT dashboard at the public HTTPS address, including the
+  `AT_WEBHOOK_TOKEN` path segment.
+
+The automated reminder engine uses the same client: enable `VOICE` in the
+reminder channels, save a caller ID and let the scheduler run at the configured
+send time. Calls are capped at `AT_VOICE_MAX_CALL_SECONDS`.
+
 To test the whole flow without AT credentials, point `AT_BASE_URL` at a local
 mock server that accepts `POST /version1/messaging` and returns the AT JSON
 shape:
@@ -464,6 +544,12 @@ Then capture the outbound form body from the mock, extract the OTP, and call
 - [ ] `AT_WEBHOOK_TOKEN` is 32+ random bytes and is not in source control.
 - [ ] `AT_OTP_PEPPER` is stable across restarts and different from the JWT key.
 - [ ] Callback URLs use HTTPS and point at the production host.
+- [ ] If voice is enabled: `AT_VOICE_ENABLED=true`, a voice API key is set, the
+      caller ID is verified in Africa's Talking, the `/voice` callback URL is
+      configured, and quiet hours match the SACCO's calling policy.
+- [ ] Reminder channels, days, send time and the approved WhatsApp template are
+      saved in system setup; run the engine once and confirm rows appear in
+      **Reminders**.
 - [ ] `AT_WEBHOOK_ALLOWED_IPS` is populated with AT's published callback ranges
       where feasible; `AT_WEBHOOK_TRUST_FORWARDED_HEADERS` is `true` only behind
       a trusted proxy/load balancer.
@@ -494,3 +580,8 @@ Then capture the outbound form body from the mock, extract the OTP, and call
 | OTP verify always says no active code | Code expired, consumed, or different purpose | Request a new code for the same purpose |
 | Bulk send returns 409 | Every recipient is opted out | Check `sms_opt_outs`; reply START |
 | Dispatcher appears idle | `AT_ENABLED=false` or credentials missing | Check startup env and logs |
+| Voice call returns 502 | Voice disabled, or `AT_VOICE_API_KEY`/`AT_API_KEY` blank | Set `AT_VOICE_ENABLED=true` and the voice key, then restart |
+| Voice call returns 400 "caller ID is required" | No `fromCallerId` and no saved voice caller ID | Save the caller ID in system setup or pass it in the request |
+| Reminder history shows voice `SKIPPED` | Attempt fell inside quiet hours | Adjust voice quiet hours or wait for the window |
+| Reminder history shows SMS `FAILED` "provider is not configured" | `AT_ENABLED`, `AT_USERNAME` or `AT_API_KEY` missing | Configure SMS, then retry the row from **Reminders** |
+| Reminder history shows WhatsApp `SKIPPED` | 24-hour window closed and no approved template | Save the approved reminder template name and language in setup |

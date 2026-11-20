@@ -16,6 +16,7 @@ function Layout({ onLogout }) {
   const canViewBackups = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'AUDITOR'].includes(role)
   const canManageSettings = ['ADMIN', 'RECOVERY_ADMIN'].includes(role)
   const canViewCollections = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'TELLER', 'LOAN_OFFICER', 'AUDITOR'].includes(role)
+  const canViewReminders = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'TELLER', 'LOAN_OFFICER', 'AUDITOR'].includes(role)
   const isMemberPortal = role === 'MEMBER'
 
   const [resetRequired, setResetRequired] = useState(
@@ -106,6 +107,7 @@ function Layout({ onLogout }) {
           <NavLink to="/shares">Shares</NavLink>
           <NavLink to="/loans">Loans</NavLink>
           {!isMemberPortal && canViewCollections && <NavLink to="/collections">Collections</NavLink>}
+          {!isMemberPortal && canViewReminders && <NavLink to="/reminders">Reminders</NavLink>}
           <NavLink to="/collateral">Collateral</NavLink>
           {!isMemberPortal && canViewInventory && <NavLink to="/inventory">Inventory</NavLink>}
           {!isMemberPortal && canViewFinance && <NavLink to="/finance-settings">Finance Settings</NavLink>}

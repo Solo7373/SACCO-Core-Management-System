@@ -46,5 +46,10 @@ public enum Permission {
     WHATSAPP_SEND,
     WHATSAPP_MANAGE,
     EMAIL_VIEW,
-    EMAIL_SEND
+    EMAIL_SEND,
+    REMINDER_VIEW,
+    REMINDER_MANAGE,
+    REMINDER_SEND,
+    VOICE_VIEW,
+    VOICE_SEND
 }

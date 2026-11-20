@@ -16,6 +16,7 @@ import com.sacco.communication.exception.WhatsAppOptOutException;
 import com.sacco.communication.exception.WhatsAppProviderUnavailableException;
 import com.sacco.communication.exception.WhatsAppValidationException;
 import com.sacco.communication.exception.WhatsAppWindowClosedException;
+import com.sacco.communication.voice.exception.VoiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -187,6 +188,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EmailDeliveryException.class)
     public ResponseEntity<ErrorResponse> handleEmailDelivery(EmailDeliveryException ex) {
         log.warn("Gmail delivery failed: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), ex.getMessage(), LocalDateTime.now()));
+    }
+
+    @ExceptionHandler(VoiceException.class)
+    public ResponseEntity<ErrorResponse> handleVoice(VoiceException ex) {
+        log.warn("Africa's Talking voice request failed: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), ex.getMessage(), LocalDateTime.now()));
     }

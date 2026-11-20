@@ -29,7 +29,8 @@ public class SpaController {
             "/finance-settings",
             "/backups",
             "/setup",
-            "/settings"
+            "/settings",
+            "/reminders"
     })
     public String index() {
         return "forward:/index.html";

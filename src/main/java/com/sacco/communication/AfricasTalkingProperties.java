@@ -83,12 +83,30 @@ public class AfricasTalkingProperties {
     private Http http = new Http();
     private Dispatch dispatch = new Dispatch();
     private Otp otp = new Otp();
+    private Voice voice = new Voice();
 
     /** Credentials present and the integration switched on. */
     public boolean isConfigured() {
         return enabled
                 && username != null && !username.isBlank()
                 && apiKey != null && !apiKey.isBlank();
+    }
+
+    /**
+     * Africa Talking voice (programmable outbound calls with text-to-speech).
+     * Voice is an add-on product on the same Africa Talking account, so it
+     * reuses the account credentials and adds the voice-specific settings such
+     * as the TTS engine and voice.
+     */
+    public boolean isVoiceEnabled() {
+        return voice != null && voice.isEnabled();
+    }
+
+    /** True when a voice-capable Africa Talking configuration is present. */
+    public boolean isVoiceConfigured() {
+        return isVoiceEnabled()
+                && voice.getApiKey() != null
+                && !voice.getApiKey().isBlank();
     }
 
     public String resolvedBaseUrl() {
@@ -118,6 +136,43 @@ public class AfricasTalkingProperties {
         private long maxBackoffMs = 3600000;
         private long staleSendingSeconds = 600;
         private int bulkLimit = 500;
+    }
+
+    @Getter
+    @Setter
+    public static class Voice {
+        /** Master switch for the Africa Talking voice product. Mirrors AT_VOICE_ENABLED. */
+        private boolean enabled = false;
+
+        /** Africa Talking voice API key. Falls back to the SMS account key when blank. */
+        private String apiKey = "";
+
+        /** Optional explicit voice base URL. Defaults to the sandbox/production host. */
+        private String baseUrl = "";
+
+        /** TTS engine used by the Say command, for example "amazon" or "google". */
+        private String engine = "amazon";
+
+        /** Optional preferred TTS voice identifier, for example "Salli" or "en-US-Neural2-A". */
+        private String voiceId = "";
+
+        private boolean sandbox = false;
+
+        private int timeoutMs = 30000;
+        private int maxCallDurationSeconds = 300;
+
+        public boolean isConfigured() {
+            return enabled && apiKey != null && !apiKey.isBlank();
+        }
+
+        public String resolvedBaseUrl() {
+            String base = (baseUrl != null && !baseUrl.isBlank())
+                    ? baseUrl.trim().replaceAll("/+$", "")
+                    : (sandbox
+                            ? "https://api.sandbox.africastalking.com"
+                            : "https://api.africastalking.com");
+            return base;
+        }
     }
 
     @Getter

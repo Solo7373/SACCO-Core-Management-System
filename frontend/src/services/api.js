@@ -287,6 +287,18 @@ export const api = {
   runBackup: () => request('/backups/run', { method: 'POST' }),
   retryBackupQueue: () => request('/backups/cloud/retry', { method: 'POST' }),
 
+  // Loan due-date reminder engine and Africa Talking voice calls
+  getReminderSummary: () => request('/loans/reminders/summary'),
+  getReminders: (params) => request(`/loans/reminders${queryString(params || {})}`),
+  runReminders: () => request('/loans/reminders/run', { method: 'POST' }),
+  retryReminder: (reminderId) => request(`/loans/reminders/${reminderId}/retry`, { method: 'POST' }),
+  getVoiceSummary: () => request('/communications/voice/calls/summary'),
+  getVoiceCalls: (params) => request(`/communications/voice/calls${queryString(params || {})}`),
+  initiateVoiceCall: (data) => request('/communications/voice/calls', { method: 'POST', body: JSON.stringify(data) }),
+  hangUpVoiceCall: (callId) => request(`/communications/voice/calls/${callId}/hangup`, { method: 'POST' }),
+  getVoiceCall: (callId) => request(`/communications/voice/calls/${callId}`),
+  getVoiceCallEvents: (callId) => request(`/communications/voice/calls/${callId}/events`),
+
   // Product catalogue, stock and import procurement
   getProducts: () => request('/inventory/products'),
   createProduct: (data) => request('/inventory/products', { method: 'POST', body: JSON.stringify(data) }),

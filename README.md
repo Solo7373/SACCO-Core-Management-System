@@ -36,6 +36,17 @@ No database password or signing secret is committed to this repository. Configur
 | `GDRIVE_FOLDER_ID` | Optional pre-set Google Drive backup folder ID for scripted installations. |
 | `GMAIL_ENABLED` | Enables outbound email through the Gmail API. Default: `true`. |
 | `GMAIL_BASE_URL` | Gmail API base URL. Default: `https://gmail.googleapis.com`. |
+| `AT_ENABLED` | Enables real Africa's Talking SMS sends. Default: `false`. |
+| `AT_USERNAME` / `AT_API_KEY` | Africa's Talking account credentials. Required for real SMS. |
+| `AT_SENDER_ID` | SMS sender ID or short code. The value saved in system setup is used when this is blank. |
+| `AT_WEBHOOK_TOKEN` | High-entropy token embedded in Africa's Talking callback URLs. Webhooks fail closed when blank. |
+| `AT_VOICE_ENABLED` | Enables outbound Africa's Talking voice calls. Default: `false`. |
+| `AT_VOICE_API_KEY` | Voice API key. Falls back to `AT_API_KEY` when blank. |
+| `AT_VOICE_ENGINE` / `AT_VOICE_VOICE_ID` | Text-to-speech engine (default `amazon`) and optional voice ID. |
+| `WA_ENABLED` | Enables Meta WhatsApp Cloud API sends. Default: `false`. |
+| `WA_PHONE_NUMBER_ID` / `WA_ACCESS_TOKEN` | Meta WhatsApp phone number ID and System User access token. |
+| `WA_WEBHOOK_TOKEN` | High-entropy token embedded in the Meta webhook path. |
+| `SACCO_REMINDER_CRON` | Cron for the loan reminder engine. Default: `0 * * * * *` (every minute). |
 
 PowerShell example:
 
@@ -93,9 +104,39 @@ npm run build:dir
 
 ## Integrations
 
-- **Africa's Talking** for SMS, delivery reports, incoming SMS, and OTP verification (`AT_*` variables).
+- **Africa's Talking** for SMS, delivery reports, incoming SMS, OTP verification and outbound voice calls (`AT_*` variables).
 - **Meta WhatsApp Cloud API** for WhatsApp messaging (`WA_*` variables).
 - **Google Drive** for backups, member documents, and WhatsApp media archiving. See [`docs/google-drive-integration.md`](docs/google-drive-integration.md) for setup and the phased plan.
 - **Gmail API** for outbound email, using the same OAuth Google account connected for Drive backups. Add `https://www.googleapis.com/auth/gmail.send` to the consent request.
+
+### Loan due-date reminders
+
+The reminder engine runs in the background every minute (`SACCO_REMINDER_CRON`)
+and sends at most once per loan instalment, reminder day (for example 5, 3, 1
+and 0 days before the due date), channel and send date. The first tick after
+the configured send time in the SACCO timezone dispatches, so a run missed while
+the server was down is caught up on the next tick.
+
+- Channels are SMS, WhatsApp, email and voice. A channel whose provider is not
+  configured is recorded as `SKIPPED` with the reason instead of failing the
+  whole run.
+- WhatsApp uses the approved reminder template saved in setup for
+  business-initiated messages; free text is only sent inside the customer
+  service window.
+- Voice calls use the stored caller ID and only run outside the configured
+  quiet hours.
+- Every attempt is logged as `SENT`, `FAILED`, `SKIPPED` or `SUPPRESSED` with
+  the provider reference or failure reason.
+- Dispatch is idempotent, so an existing attempt for the same
+  loan/instalment/day/channel/send-date is suppressed rather than resent. A
+  failed attempt is not retried automatically; staff can retry it from
+  **Reminders**.
+- Staff with `REMINDER_SEND` permission can run the engine manually or retry a
+  failed row. The page also shows the stored policy, call history and current
+  counters.
+
+See [`docs/system-setup.md`](docs/system-setup.md) and
+[`docs/africastalking-integration.md`](docs/africastalking-integration.md) for
+setup details.
 
 Keep all API keys, tokens, app secrets, and database passwords in environment variables. Do not commit them.

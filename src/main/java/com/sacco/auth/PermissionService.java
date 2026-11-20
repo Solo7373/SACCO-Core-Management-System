@@ -74,7 +74,11 @@ public class PermissionService {
                 Permission.WHATSAPP_VIEW,
                 Permission.WHATSAPP_SEND,
                 Permission.EMAIL_VIEW,
-                Permission.EMAIL_SEND
+                Permission.EMAIL_SEND,
+                Permission.REMINDER_VIEW,
+                Permission.REMINDER_SEND,
+                Permission.VOICE_VIEW,
+                Permission.VOICE_SEND
         ));
 
         map.put("LOAN_OFFICER", EnumSet.of(
@@ -96,7 +100,11 @@ public class PermissionService {
                 Permission.WHATSAPP_VIEW,
                 Permission.WHATSAPP_SEND,
                 Permission.EMAIL_VIEW,
-                Permission.EMAIL_SEND
+                Permission.EMAIL_SEND,
+                Permission.REMINDER_VIEW,
+                Permission.REMINDER_SEND,
+                Permission.VOICE_VIEW,
+                Permission.VOICE_SEND
         ));
 
         // Auditor workspace: compliance exports plus the control-role ability

@@ -17,6 +17,7 @@ import Compliance from './pages/Compliance'
 import FinanceSettings from './pages/FinanceSettings'
 import Backups from './pages/Backups'
 import Setup from './pages/Setup'
+import Reminders from './pages/Reminders'
 import { api } from './services/api'
 
 function App() {
@@ -127,6 +128,7 @@ function App() {
         <Route path="/compliance" element={<Compliance />} />
         <Route path="/finance-settings" element={<FinanceSettings />} />
         <Route path="/backups" element={<Backups />} />
+        <Route path="/reminders" element={<Reminders />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/users" element={<Users />} />
         <Route

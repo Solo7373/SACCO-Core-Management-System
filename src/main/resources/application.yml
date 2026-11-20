@@ -48,6 +48,22 @@ sacco:
       # Stable across restarts. Generate with: openssl rand -hex 32
       pepper: ${AT_OTP_PEPPER:}
       require-active-member: ${AT_OTP_REQUIRE_ACTIVE_MEMBER:false}
+    # Africa Talking programmable voice (outbound calls with text-to-speech).
+    # Voice is an add-on product on the same Africa Talking account.
+    voice:
+      enabled: ${AT_VOICE_ENABLED:false}
+      api-key: ${AT_VOICE_API_KEY:}
+      base-url: ${AT_VOICE_BASE_URL:}
+      engine: ${AT_VOICE_ENGINE:amazon}
+      voice-id: ${AT_VOICE_VOICE_ID:}
+      timeout-ms: ${AT_VOICE_TIMEOUT_MS:30000}
+      max-call-duration-seconds: ${AT_VOICE_MAX_CALL_SECONDS:300}
+  # Loan due-date reminder engine. The scheduler ticks every minute so a run
+  # missed during downtime is caught up on the next tick. Send time and channel
+  # policy are read from the system settings in the SACCO timezone.
+  reminders:
+    scheduler:
+      cron: ${SACCO_REMINDER_CRON:0 * * * * *}
   # Meta WhatsApp Cloud API. Separate from SMS: WhatsApp handles conversational
   # and template messages, SMS remains the universal fallback.
   # All secrets come from environment variables; never commit real values.

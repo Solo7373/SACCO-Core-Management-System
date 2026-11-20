@@ -71,6 +71,11 @@ const EMPTY_FORM = {
     reminderGraceDays: 3,
     reminderTemplate:
       'Dear {memberName}, your loan {loanNumber} instalment of {currency} {amount} is due on {dueDate}. Please pay on time to avoid penalties. {organisationName}',
+    reminderWhatsappTemplate: '',
+    reminderWhatsappLanguage: 'en',
+    voiceEnabled: false,
+    voiceQuietHoursStart: '08:00',
+    voiceQuietHoursEnd: '18:00',
     consentRequired: true,
     optOutText: 'Reply STOP to opt out of SMS reminders.'
   },
@@ -116,7 +121,12 @@ function fromStatus(status) {
       ...messaging,
       emailFromAddress: messaging.emailFromAddress || storage.googleAccountEmail || '',
       reminderDaysBefore: (messaging.reminderDaysBefore || []).join(','),
-      reminderChannels: messaging.reminderChannels || []
+      reminderChannels: messaging.reminderChannels || [],
+      reminderWhatsappTemplate: messaging.reminderWhatsappTemplate || '',
+      reminderWhatsappLanguage: messaging.reminderWhatsappLanguage || 'en',
+      voiceEnabled: Boolean(messaging.voiceEnabled),
+      voiceQuietHoursStart: messaging.voiceQuietHoursStart || '08:00',
+      voiceQuietHoursEnd: messaging.voiceQuietHoursEnd || '18:00'
     },
     billing: { ...EMPTY_FORM.billing, ...billing }
   }
@@ -274,6 +284,9 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
       if (messaging.reminderChannels.includes('VOICE') && !messaging.voiceCallerId.trim()) {
         return 'Enter the voice caller ID.'
       }
+      if (messaging.reminderChannels.includes('WHATSAPP') && !(messaging.reminderWhatsappTemplate || '').trim()) {
+        return 'Enter the approved WhatsApp reminder template name, or clear the WhatsApp channel to use free text inside the customer window.'
+      }
       if (!messaging.reminderTemplate.trim()) return 'Enter the loan reminder message template.'
       if (messaging.consentRequired && !messaging.optOutText.trim()) {
         return 'Enter the opt-out wording used in member messages.'
@@ -324,6 +337,11 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
       reminderSendTime: form.messaging.reminderSendTime,
       reminderGraceDays: Number(form.messaging.reminderGraceDays) || 0,
       reminderTemplate: form.messaging.reminderTemplate,
+      reminderWhatsappTemplate: form.messaging.reminderWhatsappTemplate,
+      reminderWhatsappLanguage: form.messaging.reminderWhatsappLanguage,
+      voiceEnabled: Boolean(form.messaging.voiceEnabled),
+      voiceQuietHoursStart: form.messaging.voiceQuietHoursStart,
+      voiceQuietHoursEnd: form.messaging.voiceQuietHoursEnd,
       consentRequired: Boolean(form.messaging.consentRequired),
       optOutText: form.messaging.optOutText
     }
@@ -1020,6 +1038,31 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
               <Field label="Loan reminder template" hint="Placeholders: {memberName}, {loanNumber}, {amount}, {currency}, {dueDate}, {organisationName}.">
                 <textarea rows={4} value={form.messaging.reminderTemplate} onChange={e => update('messaging', 'reminderTemplate', e.target.value)} />
               </Field>
+
+              <div className="form-grid two-column">
+                {form.messaging.reminderChannels?.includes('WHATSAPP') && (
+                  <>
+                    <Field label="Approved WhatsApp reminder template" hint="Meta-approved utility template name used for automated instalment reminders, for example loan_due_reminder. Leave blank to fall back to free text inside the customer service window.">
+                      <input value={form.messaging.reminderWhatsappTemplate || ''} onChange={e => update('messaging', 'reminderWhatsappTemplate', e.target.value)} placeholder="loan_due_reminder" />
+                    </Field>
+                    <Field label="WhatsApp reminder language">
+                      <input value={form.messaging.reminderWhatsappLanguage || 'en'} onChange={e => update('messaging', 'reminderWhatsappLanguage', e.target.value)} placeholder="en" />
+                    </Field>
+                  </>
+                )}
+                <Field label="Voice calls enabled" hint="When enabled, the loan reminder engine can place an Africa Talking outbound voice call with text-to-speech.">
+                  <select value={form.messaging.voiceEnabled ? 'yes' : 'no'} onChange={e => update('messaging', 'voiceEnabled', e.target.value === 'yes')}>
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </Field>
+                <Field label="Voice quiet hours start" hint="Voice calls are suppressed before this time (HH:mm, 24-hour).">
+                  <input value={form.messaging.voiceQuietHoursStart || '08:00'} onChange={e => update('messaging', 'voiceQuietHoursStart', e.target.value)} placeholder="08:00" />
+                </Field>
+                <Field label="Voice quiet hours end" hint="Voice calls are suppressed from this time (HH:mm, 24-hour) onwards.">
+                  <input value={form.messaging.voiceQuietHoursEnd || '18:00'} onChange={e => update('messaging', 'voiceQuietHoursEnd', e.target.value)} placeholder="18:00" />
+                </Field>
+              </div>
 
               <div className="form-grid two-column">
                 <Field label="Consent required">

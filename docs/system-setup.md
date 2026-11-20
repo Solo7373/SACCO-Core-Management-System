@@ -135,11 +135,39 @@ The loan reminder policy records:
 - Message template with `{memberName}`, `{loanNumber}`, `{amount}`,
   `{currency}`, `{dueDate}` and `{organisationName}` placeholders
 - Consent requirement and opt-out wording
+- Approved Meta WhatsApp reminder template name and language, used for
+  business-initiated WhatsApp messages outside the 24-hour customer service
+  window
+- Voice quiet hours (`HH:mm`, default `08:00`–`18:00`)
 
 The SMS sender ID configured here is used for outbound SMS when the
 `AT_SENDER_ID` environment variable is blank. The WhatsApp and voice channel
 identities still need to be provisioned in the Meta and Africa's Talking
 dashboards; setup records the identity the SACCO intends to use.
+
+#### How the reminder engine runs
+
+The scheduler ticks every minute and dispatches only when the current time in
+the SACCO timezone is at or after the configured send time. A run missed while
+the server was down is caught up on the next tick.
+
+For every open instalment the engine checks the configured days before the due
+date (plus the grace-period day when grace is greater than zero) and each
+enabled channel. A dispatch is keyed by loan, instalment, days-before, channel
+and send date, so the same reminder is never sent twice.
+
+- `SENT` — the provider accepted the message or call.
+- `FAILED` — the provider rejected it or the channel is not configured. The
+  automatic engine does not retry failed rows, to avoid hammering a provider;
+  an authorised user can retry from **Reminders**.
+- `SKIPPED` — the policy or provider window blocked the send, for example a
+  closed WhatsApp 24-hour window, a quiet-hours voice call or an opt-out.
+- `SUPPRESSED` — an attempt for the same key already exists.
+
+Every attempt stores the recipient, provider reference and failure reason, and
+appears in the Reminders history with status and channel filters. The page
+counters show sent, failed, skipped and suppressed totals for the recorded
+history.
 
 ### Communication billing
 
@@ -242,6 +270,22 @@ and confirm it in the Administrator step.
 | `SACCO_BACKUP_SCHEDULER_ENABLED` | `true` | Run automatic backups in the background |
 | `SACCO_BACKUP_SCHEDULER_CHECK_INTERVAL_MS` | `60000` | How often the scheduler checks whether a snapshot is due |
 | `SACCO_BACKUP_SCHEDULER_INITIAL_DELAY_MS` | `60000` | Delay before the first automatic-backup check after startup |
+| `SACCO_REMINDER_CRON` | `0 * * * * *` | Cron for the loan reminder engine (every minute). Keep the frequent tick so missed runs are caught up |
+| `AT_ENABLED` | `false` | Enable real Africa's Talking SMS sends |
+| `AT_USERNAME` / `AT_API_KEY` | empty | Africa's Talking credentials |
+| `AT_SENDER_ID` | empty | SMS sender ID fallback when the saved setup value is blank |
+| `AT_WEBHOOK_TOKEN` | empty | Token in the AT callback path; webhooks fail closed when blank |
+| `AT_VOICE_ENABLED` | `false` | Enable outbound Africa's Talking voice calls |
+| `AT_VOICE_API_KEY` | empty | Voice API key; falls back to `AT_API_KEY` |
+| `AT_VOICE_BASE_URL` | AT host | Override for a mock or proxy |
+| `AT_VOICE_ENGINE` | `amazon` | TTS engine used by the `Say` command |
+| `AT_VOICE_VOICE_ID` | empty | Optional preferred TTS voice |
+| `AT_VOICE_TIMEOUT_MS` | `30000` | Voice API timeout |
+| `AT_VOICE_MAX_CALL_SECONDS` | `300` | Maximum call duration |
+| `WA_ENABLED` | `false` | Enable Meta WhatsApp Cloud API sends |
+| `WA_PHONE_NUMBER_ID` / `WA_WABA_ID` | empty | Meta phone number ID and WhatsApp Business Account ID |
+| `WA_ACCESS_TOKEN` | empty | Meta System User token |
+| `WA_WEBHOOK_TOKEN` | empty | Token in the Meta webhook path; fails closed when blank |
 
 ---
 

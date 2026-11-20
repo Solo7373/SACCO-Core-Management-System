@@ -171,6 +171,22 @@ public class SystemSettings {
     @Column(name = "opt_out_text", length = 500)
     private String optOutText;
 
+    @Column(name = "reminder_whatsapp_template", length = 200)
+    private String reminderWhatsappTemplate;
+
+    @Column(name = "reminder_whatsapp_language", length = 20)
+    private String reminderWhatsappLanguage;
+
+    @Column(name = "voice_enabled", nullable = false)
+    @Builder.Default
+    private Boolean voiceEnabled = false;
+
+    @Column(name = "voice_quiet_hours_start", length = 5)
+    private String voiceQuietHoursStart;
+
+    @Column(name = "voice_quiet_hours_end", length = 5)
+    private String voiceQuietHoursEnd;
+
     // ---- Communication billing ------------------------------------------
 
     @Column(name = "billing_provider", length = 100)

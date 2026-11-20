@@ -91,6 +91,11 @@ public class SetupStatusResponse {
         private String reminderSendTime;
         private Integer reminderGraceDays;
         private String reminderTemplate;
+        private String reminderWhatsappTemplate;
+        private String reminderWhatsappLanguage;
+        private Boolean voiceEnabled;
+        private String voiceQuietHoursStart;
+        private String voiceQuietHoursEnd;
         private Boolean consentRequired;
         private String optOutText;
     }
