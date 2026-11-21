@@ -33,8 +33,6 @@ const ENTITY_OPTIONS = [
   ['SHARE_TRANSACTION', 'Share Transaction'],
   ['LOAN', 'Loan'],
   ['COLLATERAL', 'Collateral'],
-  ['TAX_RATE', 'Tax Rate'],
-  ['FEE_CONFIG', 'Fee Config'],
   ['PRODUCT', 'Product'],
   ['PRODUCT_IMPORT', 'Product Import']
 ]
@@ -47,10 +45,6 @@ function formatDateTime(value) {
   return value ? new Date(value).toLocaleString() : '-'
 }
 
-function formatPercent(value) {
-  return `${Number(value || 0)}%`
-}
-
 function emptyFilters() {
   return { fromDate: '', toDate: '', transactionType: '', channel: '' }
 }
@@ -60,7 +54,6 @@ function Compliance() {
   const [filters, setFilters] = useState(emptyFilters)
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters)
   const [sheet, setSheet] = useState(null)
-  const [breakdown, setBreakdown] = useState(null)
   const [auditLog, setAuditLog] = useState([])
   const [auditFilters, setAuditFilters] = useState({ action: '', entityType: '', limit: '100' })
   const [appliedAuditFilters, setAppliedAuditFilters] = useState({ action: '', entityType: '', limit: '100' })
@@ -83,12 +76,8 @@ function Compliance() {
   async function loadCompliance() {
     setLoading(true)
     try {
-      const [sheetData, taxData] = await Promise.all([
-        api.getComplianceTransactions(appliedFilters),
-        api.getTaxBreakdown({ fromDate: appliedFilters.fromDate, toDate: appliedFilters.toDate })
-      ])
+      const sheetData = await api.getComplianceTransactions(appliedFilters)
       setSheet(sheetData)
-      setBreakdown(taxData)
       setError(null)
     } catch (err) {
       setError(err.message)
@@ -117,11 +106,6 @@ function Compliance() {
     try {
       if (scope === 'transactions') {
         await api.exportComplianceTransactions(appliedFilters, format)
-      } else if (scope === 'taxes') {
-        await api.exportTaxBreakdown(
-          { fromDate: appliedFilters.fromDate, toDate: appliedFilters.toDate },
-          format
-        )
       } else {
         await api.exportComplianceAuditLog(appliedAuditFilters, format)
       }
@@ -132,7 +116,7 @@ function Compliance() {
     }
   }
 
-  const exportScope = tab === 'taxes' ? 'taxes' : tab === 'audit' ? 'audit' : 'transactions'
+  const exportScope = tab === 'audit' ? 'audit' : 'transactions'
   const exportFormats = [
     ['csv', 'Export CSV'],
     ['xlsx', 'Export Excel'],
@@ -140,7 +124,6 @@ function Compliance() {
   ]
 
   const rows = sheet?.rows || []
-  const taxRows = breakdown?.rows || []
 
   const typeSummary = useMemo(() => {
     const summary = {}
@@ -157,7 +140,7 @@ function Compliance() {
         <div>
           <h2>Compliance & Audit</h2>
           <p className="page-subtitle">
-            Read-only financial audit workspace: transaction spreadsheets, tax breakdowns and the audit trail
+            Read-only financial audit workspace: transaction spreadsheets and the audit trail
           </p>
         </div>
         <div className="header-actions">
@@ -184,15 +167,12 @@ function Compliance() {
         <button className={`tab ${tab === 'transactions' ? 'active' : ''}`} onClick={() => setTab('transactions')}>
           Transaction Sheet
         </button>
-        <button className={`tab ${tab === 'taxes' ? 'active' : ''}`} onClick={() => setTab('taxes')}>
-          Tax Breakdown
-        </button>
         <button className={`tab ${tab === 'audit' ? 'active' : ''}`} onClick={() => setTab('audit')}>
           Audit Log
         </button>
       </div>
 
-      {(tab === 'transactions' || tab === 'taxes') && (
+      {tab === 'transactions' && (
         <div className="card">
           <div className="card-heading">
             <div>
@@ -274,14 +254,6 @@ function Compliance() {
               <strong>{formatMoney(sheet?.totalGross)}</strong>
             </div>
             <div className="mini-stat">
-              <span>Fees Collected</span>
-              <strong>{formatMoney(sheet?.totalFees)}</strong>
-            </div>
-            <div className="mini-stat">
-              <span>Taxes Collected</span>
-              <strong>{formatMoney(sheet?.totalTaxes)}</strong>
-            </div>
-            <div className="mini-stat">
               <span>Net Amount</span>
               <strong>{formatMoney(sheet?.totalNet)}</strong>
             </div>
@@ -296,7 +268,7 @@ function Compliance() {
               <div>
                 <h3>Detailed Transaction Spreadsheet</h3>
                 <p className="card-subtitle">
-                  Savings charges, loan repayments, share transactions and import procurement in one ledger.
+                  Savings transactions, loan repayments, share transactions and import procurement in one ledger.
                 </p>
               </div>
             </div>
@@ -310,17 +282,15 @@ function Compliance() {
                     <th>Type</th>
                     <th>Channel</th>
                     <th>Member</th>
-                    <th>Gross</th>
-                    <th>Fee</th>
-                    <th>Tax</th>
-                    <th>Net</th>
+                    <th>Amount</th>
+                    <th>Net Amount</th>
                     <th>Description</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="empty-text">No transactions match the selected filters.</td>
+                      <td colSpan={9} className="empty-text">No transactions match the selected filters.</td>
                     </tr>
                   ) : rows.map((row, index) => (
                     <tr key={`${row.reference}-${index}`}>
@@ -331,8 +301,6 @@ function Compliance() {
                       <td>{row.channel}</td>
                       <td>{row.memberName || '-'}</td>
                       <td className="numeric-cell">{formatMoney(row.grossAmount)}</td>
-                      <td className="numeric-cell">{formatMoney(row.feeAmount)}</td>
-                      <td className="numeric-cell">{formatMoney(row.taxAmount)}</td>
                       <td className="numeric-cell"><strong>{formatMoney(row.netAmount)}</strong></td>
                       <td className="description-cell">{row.description || '-'}</td>
                     </tr>
@@ -350,68 +318,6 @@ function Compliance() {
                 ))}
               </div>
             )}
-          </div>
-        </>
-      )}
-
-      {!loading && tab === 'taxes' && (
-        <>
-          <div className="mini-stat-row">
-            <div className="mini-stat">
-              <span>Total Taxable Amount</span>
-              <strong>{formatMoney(breakdown?.totalTaxableAmount)}</strong>
-            </div>
-            <div className="mini-stat">
-              <span>Total Tax Collected</span>
-              <strong>{formatMoney(breakdown?.totalTaxCollected)}</strong>
-            </div>
-            <div className="mini-stat">
-              <span>Tax Categories</span>
-              <strong>{taxRows.length}</strong>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-heading">
-              <div>
-                <h3>Tax Breakdown</h3>
-                <p className="card-subtitle">
-                  Fees taxes, mobile money levies and import customs / VAT collected in the period.
-                </p>
-              </div>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tax</th>
-                    <th>Code</th>
-                    <th>Category</th>
-                    <th>Rate</th>
-                    <th>Taxable Amount</th>
-                    <th>Tax Collected</th>
-                    <th>Transactions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {taxRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="empty-text">No taxes were collected in this period.</td>
-                    </tr>
-                  ) : taxRows.map(row => (
-                    <tr key={row.taxCode}>
-                      <td><strong>{row.taxName}</strong></td>
-                      <td className="mono-cell">{row.taxCode}</td>
-                      <td>{row.category}</td>
-                      <td>{formatPercent(row.ratePercent)}</td>
-                      <td className="numeric-cell">{formatMoney(row.taxableAmount)}</td>
-                      <td className="numeric-cell"><strong>{formatMoney(row.taxCollected)}</strong></td>
-                      <td>{row.transactionCount}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
         </>
       )}

@@ -207,7 +207,7 @@ removed from `MANAGER`, `TELLER`, `LOAN_OFFICER`, `AUDITOR` and `MEMBER`.
 
 ### Live system settings
 
-After go-live, **System Settings** opens the same six sections in edit mode.
+After go-live, **System Settings** opens the same setup sections in edit mode.
 The administrator chooses any section, changes the values and saves it; there is
 no need to redeploy, edit environment files or restart the backend. This covers:
 
@@ -216,14 +216,15 @@ no need to redeploy, edit environment files or restart the backend. This covers:
   currency;
 - sender identities for SMS, WhatsApp, email and voice, plus the loan-reminder
   dates, channels, time, grace period, template and opt-out wording;
-- the communication billing account, contact email and per-channel unit rates;
+- the optional communication billing account, contact email and per-channel unit rates;
 - automatic backup schedule, retention and a manual **Run backup now**;
 - Google Drive and Gmail connection settings.
 
 The saved identity is used on member financial statements, demand letters and
-compliance exports. Transaction fees and tax rates remain in **Finance
-Settings**. Administrator passwords are rotated from **Change Password** in the
-sidebar, not from the live settings screen.
+compliance exports. Transaction fees and tax rates are not part of the active
+workflow; historical fee and tax records remain in the database for audit.
+Administrator passwords are rotated from **Change Password** in the sidebar,
+not from the live settings screen.
 
 The public `/api/setup/status` endpoint returns only the setup flags after an
 administrator exists. Organisation, sender and billing details are returned

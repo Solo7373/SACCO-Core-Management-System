@@ -79,7 +79,7 @@ public class SetupService {
         User admin = primaryAdmin();
 
         // Once an administrator exists, the configuration contains sender
-        // identities and billing details that must not be readable anonymously.
+        // identities and contact details that must not be readable anonymously.
         if (admin != null && !canManageSettings()) {
             return SetupStatusResponse.builder()
                     .setupRequired(!Boolean.TRUE.equals(settings.getSetupCompleted()))
@@ -652,15 +652,6 @@ public class SetupService {
         }
         if (settings.getReminderGraceDays() == null) missing.add("Loan reminder grace period");
 
-        if (isBlank(settings.getBillingAccountName())) missing.add("Communication billing account name");
-        if (isBlank(settings.getBillingAccountNumber())) missing.add("Communication billing account number");
-        if (isBlank(settings.getBillingCurrency())) missing.add("Communication billing currency");
-        if (settings.getSmsUnitCost() == null
-                || settings.getWhatsappUnitCost() == null
-                || settings.getEmailUnitCost() == null
-                || settings.getVoiceUnitCost() == null) {
-            missing.add("Per-channel communication rates");
-        }
         return missing;
     }
 

@@ -47,8 +47,8 @@ public class PermissionService {
         // incident, but every action is still written to the audit trail.
         map.put("RECOVERY_ADMIN", EnumSet.allOf(Permission.class));
 
-        // Managers run operations but cannot inspect the detailed audit trail,
-        // compliance spreadsheet or tax breakdowns. Those are auditor-only.
+        // Managers run operations but cannot inspect the detailed audit trail
+        // or compliance spreadsheet. Those are auditor-only.
         EnumSet<Permission> manager = EnumSet.allOf(Permission.class);
         manager.remove(Permission.AUDIT_VIEW);
         manager.remove(Permission.COMPLIANCE_VIEW);
@@ -120,8 +120,6 @@ public class PermissionService {
                 Permission.AUDIT_VIEW,
                 Permission.COMPLIANCE_VIEW,
                 Permission.COLLECTION_VIEW,
-                Permission.TAX_VIEW,
-                Permission.FEE_VIEW,
                 Permission.INVENTORY_VIEW,
                 Permission.MEMBER_EDIT,
                 Permission.MEMBER_ARCHIVE,

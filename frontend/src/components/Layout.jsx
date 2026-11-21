@@ -11,7 +11,6 @@ function Layout({ onLogout }) {
   const canManageUsers = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER'].includes(role)
   const canViewReports = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'AUDITOR'].includes(role)
   const canViewInventory = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'TELLER', 'LOAN_OFFICER', 'AUDITOR'].includes(role)
-  const canViewFinance = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'AUDITOR'].includes(role)
   const canViewCompliance = ['ADMIN', 'RECOVERY_ADMIN', 'AUDITOR'].includes(role)
   const canViewBackups = ['ADMIN', 'RECOVERY_ADMIN', 'MANAGER', 'AUDITOR'].includes(role)
   const canManageSettings = ['ADMIN', 'RECOVERY_ADMIN'].includes(role)
@@ -110,7 +109,6 @@ function Layout({ onLogout }) {
           {!isMemberPortal && canViewReminders && <NavLink to="/reminders">Reminders</NavLink>}
           <NavLink to="/collateral">Collateral</NavLink>
           {!isMemberPortal && canViewInventory && <NavLink to="/inventory">Inventory</NavLink>}
-          {!isMemberPortal && canViewFinance && <NavLink to="/finance-settings">Finance Settings</NavLink>}
           {!isMemberPortal && canViewCompliance && <NavLink to="/compliance">Compliance</NavLink>}
           {!isMemberPortal && canViewReports && <NavLink to="/reports">Reports</NavLink>}
           {!isMemberPortal && canViewBackups && <NavLink to="/backups">Backups</NavLink>}

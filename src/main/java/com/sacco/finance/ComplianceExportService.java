@@ -11,8 +11,6 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.sacco.audit.dto.AuditEventResponse;
-import com.sacco.finance.dto.TaxBreakdownResponse;
-import com.sacco.finance.dto.TaxBreakdownRow;
 import com.sacco.finance.dto.TransactionSheetResponse;
 import com.sacco.finance.dto.TransactionSheetRow;
 import com.sacco.finance.export.SimpleXlsxWriter;
@@ -78,20 +76,6 @@ public class ComplianceExportService {
         };
     }
 
-    public ExportFile exportTaxBreakdown(LocalDate fromDate, LocalDate toDate,
-            String format, Long actorId) {
-        actorId = com.sacco.auth.SecurityUtils.currentUserId() != null ? com.sacco.auth.SecurityUtils.currentUserId() : actorId;
-        String normalized = normalizeFormat(format);
-        TaxBreakdownResponse breakdown = complianceService.getTaxBreakdown(fromDate, toDate, actorId);
-        String base = "tax-breakdown-" + LocalDate.now().format(FILE_DATE);
-        return switch (normalized) {
-            case "CSV" -> new ExportFile(base + ".csv", CSV_CONTENT_TYPE,
-                    csvTaxBreakdown(breakdown).getBytes(StandardCharsets.UTF_8));
-            case "XLSX" -> new ExportFile(base + ".xlsx", XLSX_CONTENT_TYPE, xlsxTaxBreakdown(breakdown));
-            default -> new ExportFile(base + ".pdf", PDF_CONTENT_TYPE, pdfTaxBreakdown(breakdown));
-        };
-    }
-
     public ExportFile exportAuditLog(int limit, String action, String entityType,
             String format, Long actorId) {
         actorId = com.sacco.auth.SecurityUtils.currentUserId() != null ? com.sacco.auth.SecurityUtils.currentUserId() : actorId;
@@ -123,7 +107,7 @@ public class ComplianceExportService {
 
     private String csvTransactions(TransactionSheetResponse sheet) {
         StringBuilder csv = new StringBuilder();
-        csv.append("Date,Reference,Source,Transaction Type,Channel,Member,Gross Amount,Fee Amount,Tax Amount,Net Amount,Description\n");
+        csv.append("Date,Reference,Source,Transaction Type,Channel,Member,Amount,Net Amount,Description\n");
         for (TransactionSheetRow row : sheet.getRows()) {
             csv.append(csvValue(row.getDate())).append(',')
                     .append(csvValue(row.getReference())).append(',')
@@ -132,34 +116,12 @@ public class ComplianceExportService {
                     .append(csvValue(row.getChannel())).append(',')
                     .append(csvValue(row.getMemberName())).append(',')
                     .append(plain(row.getGrossAmount())).append(',')
-                    .append(plain(row.getFeeAmount())).append(',')
-                    .append(plain(row.getTaxAmount())).append(',')
                     .append(plain(row.getNetAmount())).append(',')
                     .append(csvValue(row.getDescription())).append('\n');
         }
         csv.append("TOTALS,,,,,,")
                 .append(plain(sheet.getTotalGross())).append(',')
-                .append(plain(sheet.getTotalFees())).append(',')
-                .append(plain(sheet.getTotalTaxes())).append(',')
                 .append(plain(sheet.getTotalNet())).append(",\n");
-        return csv.toString();
-    }
-
-    private String csvTaxBreakdown(TaxBreakdownResponse breakdown) {
-        StringBuilder csv = new StringBuilder();
-        csv.append("Tax Name,Tax Code,Category,Rate %,Taxable Amount,Tax Collected,Transactions\n");
-        for (TaxBreakdownRow row : breakdown.getRows()) {
-            csv.append(csvValue(row.getTaxName())).append(',')
-                    .append(csvValue(row.getTaxCode())).append(',')
-                    .append(csvValue(row.getCategory())).append(',')
-                    .append(plain(row.getRatePercent())).append(',')
-                    .append(plain(row.getTaxableAmount())).append(',')
-                    .append(plain(row.getTaxCollected())).append(',')
-                    .append(row.getTransactionCount()).append('\n');
-        }
-        csv.append("TOTALS,,,,")
-                .append(plain(breakdown.getTotalTaxableAmount())).append(',')
-                .append(plain(breakdown.getTotalTaxCollected())).append(",\n");
         return csv.toString();
     }
 
@@ -185,31 +147,16 @@ public class ComplianceExportService {
     private byte[] xlsxTransactions(TransactionSheetResponse sheet) {
         List<List<Object>> rows = new ArrayList<>();
         rows.add(List.of("Date", "Reference", "Source", "Transaction Type", "Channel", "Member",
-                "Gross Amount", "Fee Amount", "Tax Amount", "Net Amount", "Description"));
+                "Amount", "Net Amount", "Description"));
         for (TransactionSheetRow row : sheet.getRows()) {
             rows.add(Arrays.asList(
                     row.getDate(), row.getReference(), row.getSource(), row.getTransactionType(),
-                    row.getChannel(), row.getMemberName(), row.getGrossAmount(), row.getFeeAmount(),
-                    row.getTaxAmount(), row.getNetAmount(), row.getDescription()));
+                    row.getChannel(), row.getMemberName(), row.getGrossAmount(),
+                    row.getNetAmount(), row.getDescription()));
         }
         rows.add(Arrays.asList("TOTALS", null, null, null, null, null,
-                sheet.getTotalGross(), sheet.getTotalFees(), sheet.getTotalTaxes(),
-                sheet.getTotalNet(), null));
+                sheet.getTotalGross(), sheet.getTotalNet(), null));
         return SimpleXlsxWriter.write("Transactions", rows);
-    }
-
-    private byte[] xlsxTaxBreakdown(TaxBreakdownResponse breakdown) {
-        List<List<Object>> rows = new ArrayList<>();
-        rows.add(List.of("Tax Name", "Tax Code", "Category", "Rate %", "Taxable Amount",
-                "Tax Collected", "Transactions"));
-        for (TaxBreakdownRow row : breakdown.getRows()) {
-            rows.add(Arrays.asList(row.getTaxName(), row.getTaxCode(), row.getCategory(),
-                    row.getRatePercent(), row.getTaxableAmount(), row.getTaxCollected(),
-                    row.getTransactionCount()));
-        }
-        rows.add(Arrays.asList("TOTALS", null, null, null,
-                breakdown.getTotalTaxableAmount(), breakdown.getTotalTaxCollected(), null));
-        return SimpleXlsxWriter.write("Tax Breakdown", rows);
     }
 
     private byte[] xlsxAuditLog(List<AuditEventResponse> events) {
@@ -235,14 +182,14 @@ public class ComplianceExportService {
             document.open();
             Fonts fonts = fonts();
             addTitle(document, "Sealed Transaction Audit Sheet",
-                    "Savings charges, loan repayments, share transactions and import procurement",
+                    "Savings transactions, loan repayments, share transactions and import procurement",
                     sheet.getCount() + " rows | Gross " + money(sheet.getTotalGross())
                             + " | Net " + money(sheet.getTotalNet()), fonts);
 
             PdfPTable table = table(new float[]{1.0f, 1.5f, 1.1f, 1.5f, 1.0f, 1.8f,
-                    1.2f, 1.0f, 1.0f, 1.2f, 2.2f});
+                    1.2f, 1.2f, 2.2f});
             addHeader(table, fonts.header, "Date", "Reference", "Source", "Type", "Channel",
-                    "Member", "Gross", "Fee", "Tax", "Net", "Description");
+                    "Member", "Amount", "Net", "Description");
             for (TransactionSheetRow row : sheet.getRows()) {
                 addCell(table, fonts.body, row.getDate() == null ? "" : row.getDate().toString());
                 addCell(table, fonts.body, row.getReference());
@@ -251,14 +198,11 @@ public class ComplianceExportService {
                 addCell(table, fonts.body, row.getChannel());
                 addCell(table, fonts.body, row.getMemberName());
                 addCell(table, fonts.body, plain(row.getGrossAmount()));
-                addCell(table, fonts.body, plain(row.getFeeAmount()));
-                addCell(table, fonts.body, plain(row.getTaxAmount()));
                 addCell(table, fonts.body, plain(row.getNetAmount()));
                 addCell(table, fonts.body, row.getDescription());
             }
             addTotalsRow(table, fonts.totals, "TOTALS", null, null, null, null, null,
-                    plain(sheet.getTotalGross()), plain(sheet.getTotalFees()),
-                    plain(sheet.getTotalTaxes()), plain(sheet.getTotalNet()), null);
+                    plain(sheet.getTotalGross()), plain(sheet.getTotalNet()), null);
             document.add(table);
 
             addSeal(document, csvTransactions(sheet), fonts.small);
@@ -266,41 +210,6 @@ public class ComplianceExportService {
             return out.toByteArray();
         } catch (Exception ex) {
             throw new IllegalStateException("Could not generate transaction audit PDF: " + ex.getMessage(), ex);
-        }
-    }
-
-    private byte[] pdfTaxBreakdown(TaxBreakdownResponse breakdown) {
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4, 32, 32, 32, 28);
-            PdfWriter.getInstance(document, out);
-            document.open();
-            Fonts fonts = fonts();
-            addTitle(document, "Sealed Tax Breakdown",
-                    "Indirect taxes collected on fees and import procurement",
-                    breakdown.getRows().size() + " tax lines | Taxable " + money(breakdown.getTotalTaxableAmount())
-                            + " | Collected " + money(breakdown.getTotalTaxCollected()), fonts);
-
-            PdfPTable table = table(new float[]{2.2f, 1.4f, 1.2f, 0.9f, 1.5f, 1.5f, 1.0f});
-            addHeader(table, fonts.header, "Tax Name", "Code", "Category", "Rate %",
-                    "Taxable Amount", "Tax Collected", "Transactions");
-            for (TaxBreakdownRow row : breakdown.getRows()) {
-                addCell(table, fonts.body, row.getTaxName());
-                addCell(table, fonts.body, row.getTaxCode());
-                addCell(table, fonts.body, row.getCategory());
-                addCell(table, fonts.body, plain(row.getRatePercent()));
-                addCell(table, fonts.body, plain(row.getTaxableAmount()));
-                addCell(table, fonts.body, plain(row.getTaxCollected()));
-                addCell(table, fonts.body, String.valueOf(row.getTransactionCount()));
-            }
-            addTotalsRow(table, fonts.totals, "TOTALS", null, null, null,
-                    plain(breakdown.getTotalTaxableAmount()), plain(breakdown.getTotalTaxCollected()), null);
-            document.add(table);
-
-            addSeal(document, csvTaxBreakdown(breakdown), fonts.small);
-            document.close();
-            return out.toByteArray();
-        } catch (Exception ex) {
-            throw new IllegalStateException("Could not generate tax breakdown PDF: " + ex.getMessage(), ex);
         }
     }
 

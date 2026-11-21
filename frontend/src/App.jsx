@@ -14,7 +14,6 @@ import Reports from './pages/Reports'
 import Users from './pages/Users'
 import Inventory from './pages/Inventory'
 import Compliance from './pages/Compliance'
-import FinanceSettings from './pages/FinanceSettings'
 import Backups from './pages/Backups'
 import Setup from './pages/Setup'
 import Reminders from './pages/Reminders'
@@ -126,7 +125,6 @@ function App() {
         <Route path="/collateral" element={<Collateral />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/compliance" element={<Compliance />} />
-        <Route path="/finance-settings" element={<FinanceSettings />} />
         <Route path="/backups" element={<Backups />} />
         <Route path="/reminders" element={<Reminders />} />
         <Route path="/reports" element={<Reports />} />

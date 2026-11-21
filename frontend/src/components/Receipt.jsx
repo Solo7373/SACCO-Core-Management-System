@@ -35,9 +35,7 @@ export default function Receipt({ receipt, accounts, onClose }) {
               <ReceiptRow label="To Transaction" value={data.toTransaction?.reference} />
               <ReceiptRow label="Amount" value={formatMoney(data.fromTransaction?.amount)} />
               <ReceiptRow label="Channel" value={data.fromTransaction?.channel || 'CASH'} />
-              <ReceiptRow label="Transfer Fee" value={formatMoney(data.fromTransaction?.feeAmount)} />
-              <ReceiptRow label="Tax" value={formatMoney(data.fromTransaction?.taxAmount)} />
-              <ReceiptRow label="Net Credited" value={formatMoney(data.toTransaction?.amount)} />
+              <ReceiptRow label="Amount Credited" value={formatMoney(data.toTransaction?.amount)} />
               <ReceiptRow label="Status" value="Completed" />
               <ReceiptRow label="Posted" value={formatDate(data.fromTransaction?.createdAt)} />
             </>
@@ -45,11 +43,8 @@ export default function Receipt({ receipt, accounts, onClose }) {
             <>
               <ReceiptRow label="Type" value={data.transactionType || 'Transaction'} />
               <ReceiptRow label="Account" value={accounts?.find(a => a.accountId === data.accountId)?.accountNumber || `#${data.accountId}`} />
-              <ReceiptRow label="Gross Amount" value={formatMoney(data.amount)} />
+              <ReceiptRow label="Amount" value={formatMoney(data.amount)} />
               <ReceiptRow label="Channel" value={data.channel || 'CASH'} />
-              <ReceiptRow label="Fee" value={formatMoney(data.feeAmount)} />
-              <ReceiptRow label="Tax" value={formatMoney(data.taxAmount)} />
-              <ReceiptRow label="Net Amount" value={formatMoney(data.netAmount ?? data.amount)} />
               <ReceiptRow label="Status" value={data.status} />
               <ReceiptRow label="Value Date" value={data.valueDate || '—'} />
               <ReceiptRow label="Posted" value={formatDate(data.createdAt)} />

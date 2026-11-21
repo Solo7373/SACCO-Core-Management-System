@@ -1,7 +1,6 @@
 package com.sacco.finance;
 
 import com.sacco.audit.dto.AuditEventResponse;
-import com.sacco.finance.dto.TaxBreakdownResponse;
 import com.sacco.finance.dto.TransactionSheetResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -48,25 +47,6 @@ public class ComplianceController {
         actorId = com.sacco.auth.SecurityUtils.currentUserId() != null ? com.sacco.auth.SecurityUtils.currentUserId() : actorId;
         return download(complianceExportService.exportTransactions(
                 fromDate, toDate, transactionType, channel, format, actorId));
-    }
-
-    @GetMapping("/tax-breakdown")
-    public ResponseEntity<TaxBreakdownResponse> getTaxBreakdown(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(defaultValue = "1") Long actorId) {
-        actorId = com.sacco.auth.SecurityUtils.currentUserId() != null ? com.sacco.auth.SecurityUtils.currentUserId() : actorId;
-        return ResponseEntity.ok(complianceService.getTaxBreakdown(fromDate, toDate, actorId));
-    }
-
-    @GetMapping("/tax-breakdown/export")
-    public ResponseEntity<byte[]> exportTaxBreakdown(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(defaultValue = "csv") String format,
-            @RequestParam(defaultValue = "1") Long actorId) {
-        actorId = com.sacco.auth.SecurityUtils.currentUserId() != null ? com.sacco.auth.SecurityUtils.currentUserId() : actorId;
-        return download(complianceExportService.exportTaxBreakdown(fromDate, toDate, format, actorId));
     }
 
     @GetMapping("/audit-log")

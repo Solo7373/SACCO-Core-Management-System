@@ -17,8 +17,6 @@ public class TransactionSheetRow {
     private Long memberId;
     private String memberName;
     private BigDecimal grossAmount;
-    private BigDecimal feeAmount;
-    private BigDecimal taxAmount;
     private BigDecimal netAmount;
     private String description;
 }

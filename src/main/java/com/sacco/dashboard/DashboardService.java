@@ -318,7 +318,7 @@ public class DashboardService {
                 : tx.getAmount().negate();
     }
 
-    /** Deposits/transfers-in are credited net of fees and taxes. */
+    /** Uses the stored net amount so historical postings remain unchanged. */
     private BigDecimal creditedAmount(SavingsTransaction tx) {
         return tx.getNetAmount() == null ? tx.getAmount() : tx.getNetAmount();
     }

@@ -25,7 +25,7 @@ public class SavingsTransactionRequest {
     private String description;
     private LocalDate valueDate;
 
-    /** Channel used by the fee/tax engine: CASH, BANK, MOBILE_MONEY, CROSS_BANK. */
+    /** Transaction channel: CASH, BANK, MOBILE_MONEY, CROSS_BANK. */
     private String channel = "CASH";
 
     /** Required when a withdrawal/transfer-out is at or above the approval threshold. */

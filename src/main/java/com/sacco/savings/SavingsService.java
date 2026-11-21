@@ -2,13 +2,9 @@ package com.sacco.savings;
 
 import com.sacco.account.AccountService;
 import com.sacco.account.entity.Account;
-import com.sacco.account.entity.AccountHolder;
-import com.sacco.account.repository.AccountHolderRepository;
 import com.sacco.account.repository.AccountRepository;
 import com.sacco.audit.AuditService;
 import com.sacco.common.ReferenceNumberService;
-import com.sacco.finance.FeeTaxService;
-import com.sacco.finance.dto.ChargeCalculation;
 import com.sacco.savings.dto.SavingsTransactionRequest;
 import com.sacco.savings.dto.SavingsTransactionResponse;
 import com.sacco.savings.dto.SavingsTransferRequest;
@@ -25,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -33,10 +30,8 @@ public class SavingsService {
 
     private final SavingsTransactionRepository savingsTransactionRepository;
     private final AccountRepository accountRepository;
-    private final AccountHolderRepository accountHolderRepository;
     private final AccountService accountService;
     private final ReferenceNumberService referenceNumberService;
-    private final FeeTaxService feeTaxService;
     private final AuditService auditService;
 
     @Value("${sacco.savings.withdrawal-approval-threshold:100000}")
@@ -47,9 +42,7 @@ public class SavingsService {
         actorId = com.sacco.auth.SecurityUtils.currentUserId() != null ? com.sacco.auth.SecurityUtils.currentUserId() : actorId;
         Account account = findActiveAccount(request.getAccountId());
         boolean isDebit = isDebit(request.getTransactionType());
-        String channel = feeTaxService.normalize(request.getChannel(), "CASH");
-        ChargeCalculation charge = feeTaxService.calculate(
-                request.getTransactionType().name(), channel, request.getAmount());
+        String channel = normalizeChannel(request.getChannel(), "CASH");
 
         if (isDebit) {
             BigDecimal balance = calculateBalance(request.getAccountId());
@@ -75,27 +68,20 @@ public class SavingsService {
                 .valueDate(request.getValueDate() == null ? LocalDate.now() : request.getValueDate())
                 .description(trimToNull(request.getDescription()))
                 .channel(channel)
-                .feeAmount(charge.feeAmount())
-                .taxAmount(charge.taxAmount())
-                .netAmount(charge.netAmount())
+                .feeAmount(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO)
+                .netAmount(request.getAmount())
                 .postedBy(actorId)
                 .build();
 
         SavingsTransaction saved = savingsTransactionRepository.save(transaction);
         accountService.recordActivity(account.getAccountId(), now);
 
-        feeTaxService.record(saved.getReference(), request.getTransactionType().name(), channel,
-                resolvePrimaryMemberId(account.getAccountId()), account.getAccountId(),
-                request.getAmount(), charge, saved.getDescription(), actorId);
-
         auditService.logEvent(actorId, "SAVINGS_TRANSACTION_POSTED", "SAVINGS_TRANSACTION",
                 saved.getTransactionId(),
                 "Ref: " + saved.getReference() + ", Type: " + request.getTransactionType()
                         + ", Channel: " + channel
                         + ", Amount: " + request.getAmount()
-                        + ", Fee: " + charge.feeAmount()
-                        + ", Tax: " + charge.taxAmount()
-                        + ", Net: " + charge.netAmount()
                         + (saved.getAuthorizedBy() == null ? "" : ", Authorized by: " + saved.getAuthorizedBy()));
         return SavingsTransactionResponse.fromEntity(saved);
     }
@@ -121,8 +107,7 @@ public class SavingsService {
         requireApprovalForLargeDebit(SavingsTransaction.SavingsTransactionType.TRANSFER_OUT,
                 request.getAmount(), request.getAuthorizedBy());
 
-        String channel = feeTaxService.normalize(request.getChannel(), "INTERNAL");
-        ChargeCalculation charge = feeTaxService.calculate("TRANSFER", channel, request.getAmount());
+        String channel = normalizeChannel(request.getChannel(), "INTERNAL");
 
         String transferReference = referenceNumberService.next("TRF");
         LocalDateTime now = LocalDateTime.now();
@@ -142,9 +127,9 @@ public class SavingsService {
                 .valueDate(valueDate)
                 .description(description == null ? "Transfer to " + to.getAccountNumber() : description)
                 .channel(channel)
-                .feeAmount(charge.feeAmount())
-                .taxAmount(charge.taxAmount())
-                .netAmount(charge.netAmount())
+                .feeAmount(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO)
+                .netAmount(request.getAmount())
                 .postedBy(actorId)
                 .build());
 
@@ -152,7 +137,7 @@ public class SavingsService {
                 .accountId(to.getAccountId())
                 .reference(referenceNumberService.next("TXN"))
                 .transactionType(SavingsTransaction.SavingsTransactionType.TRANSFER_IN)
-                .amount(charge.netAmount())
+                .amount(request.getAmount())
                 .currency(to.getCurrency())
                 .status(SavingsTransaction.SavingsTransactionStatus.COMPLETED)
                 .externalReference(transferReference)
@@ -161,22 +146,17 @@ public class SavingsService {
                 .channel(channel)
                 .feeAmount(BigDecimal.ZERO)
                 .taxAmount(BigDecimal.ZERO)
-                .netAmount(charge.netAmount())
+                .netAmount(request.getAmount())
                 .postedBy(actorId)
                 .build());
 
         accountService.recordActivity(from.getAccountId(), now);
         accountService.recordActivity(to.getAccountId(), now);
 
-        feeTaxService.record(transferReference, "TRANSFER", channel,
-                resolvePrimaryMemberId(from.getAccountId()), from.getAccountId(),
-                request.getAmount(), charge, description, actorId);
-
         auditService.logEvent(actorId, "SAVINGS_TRANSFER_POSTED", "SAVINGS_TRANSACTION", out.getTransactionId(),
                 "Ref: " + transferReference + ", From: " + from.getAccountNumber()
                         + ", To: " + to.getAccountNumber() + ", Amount: " + request.getAmount()
-                        + ", Channel: " + channel + ", Fee: " + charge.feeAmount()
-                        + ", Tax: " + charge.taxAmount() + ", Net: " + charge.netAmount());
+                        + ", Channel: " + channel);
 
         return SavingsTransferResponse.builder()
                 .reference(transferReference)
@@ -253,16 +233,11 @@ public class SavingsService {
         return tx.getNetAmount() == null ? tx.getAmount() : tx.getNetAmount();
     }
 
-    private Long resolvePrimaryMemberId(Long accountId) {
-        List<AccountHolder> holders = accountHolderRepository.findByAccountId(accountId);
-        if (holders.isEmpty()) {
-            return null;
+    private String normalizeChannel(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
         }
-        return holders.stream()
-                .filter(holder -> holder.getHolderType() == AccountHolder.HolderType.PRIMARY)
-                .map(AccountHolder::getMemberId)
-                .findFirst()
-                .orElseGet(() -> holders.get(0).getMemberId());
+        return value.trim().toUpperCase(Locale.ROOT);
     }
 
     private Account findActiveAccount(Long accountId) {

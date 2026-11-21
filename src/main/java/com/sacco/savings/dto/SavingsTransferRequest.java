@@ -22,6 +22,6 @@ public class SavingsTransferRequest {
     private String authorizedBy;
     private String approvalReference;
 
-    /** Channel used by the fee/tax engine: INTERNAL, BANK, CROSS_BANK, MOBILE_MONEY. */
+    /** Transfer channel: INTERNAL, BANK, CROSS_BANK, MOBILE_MONEY. */
     private String channel = "INTERNAL";
 }

@@ -26,7 +26,6 @@ public class SpaController {
             "/dashboard",
             "/inventory",
             "/compliance",
-            "/finance-settings",
             "/backups",
             "/setup",
             "/settings",

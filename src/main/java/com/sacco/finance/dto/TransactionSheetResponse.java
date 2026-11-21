@@ -12,7 +12,5 @@ public class TransactionSheetResponse {
     private List<TransactionSheetRow> rows;
     private int count;
     private BigDecimal totalGross;
-    private BigDecimal totalFees;
-    private BigDecimal totalTaxes;
     private BigDecimal totalNet;
 }

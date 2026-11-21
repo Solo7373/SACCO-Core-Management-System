@@ -348,21 +348,21 @@ function Savings() {
               <select value={form.channel} onChange={e => updateField('channel', e.target.value)}>
                 {mode === 'TRANSFER' ? (
                   <>
-                    <option value="INTERNAL">Internal transfer (fee-free)</option>
+                    <option value="INTERNAL">Internal transfer</option>
                     <option value="BANK">Bank transfer</option>
                     <option value="CROSS_BANK">Cross-bank transfer</option>
                     <option value="MOBILE_MONEY">Mobile money payout</option>
                   </>
                 ) : (
                   <>
-                    <option value="CASH">Cash at counter (fee-free)</option>
+                    <option value="CASH">Cash at counter</option>
                     <option value="BANK">Bank</option>
                     <option value="MOBILE_MONEY">Mobile money</option>
                   </>
                 )}
               </select>
               <p className="field-hint">
-                Bank charges, mobile money levies and applicable taxes are applied automatically.
+                The channel is recorded for audit and reporting. No automatic charges are applied.
               </p>
             </div>
 

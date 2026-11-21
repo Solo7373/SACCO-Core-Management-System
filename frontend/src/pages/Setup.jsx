@@ -6,7 +6,7 @@ const STEPS = [
   { id: 'admin', title: 'Administrator', hint: 'Secure the first login' },
   { id: 'storage', title: 'Storage', hint: 'Google Drive and backups' },
   { id: 'messaging', title: 'Messaging', hint: 'Senders and loan reminders' },
-  { id: 'billing', title: 'Billing', hint: 'Communication account and rates' },
+  { id: 'billing', title: 'Billing (optional)', hint: 'Optional communication cost estimates' },
   { id: 'review', title: 'Review', hint: 'Confirm and go live' }
 ]
 
@@ -220,7 +220,7 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
   }
 
   function validateCurrentStep() {
-    const { organization, admin, storage, messaging, billing } = form
+    const { organization, admin, storage, messaging } = form
     if (step === 0) {
       if (!organization.legalName.trim()) return 'Enter the organisation legal name.'
       if (!organization.addressLine1.trim()) return 'Enter the organisation physical address.'
@@ -291,11 +291,6 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
       if (messaging.consentRequired && !messaging.optOutText.trim()) {
         return 'Enter the opt-out wording used in member messages.'
       }
-    }
-    if (step === 4) {
-      if (!billing.accountName.trim()) return 'Enter the communication billing account name.'
-      if (!billing.accountNumber.trim()) return 'Enter the communication billing account number.'
-      if (!billing.currency.trim()) return 'Enter the communication billing currency.'
     }
     return null
   }
@@ -580,8 +575,8 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
           <h2>System setup complete</h2>
           <p>
             {status?.organization?.legalName || 'Your SACCO'} is configured for official use.
-            Automatic backups, Google Drive uploads, Gmail email, sender identities and
-            communication billing are stored.
+            Automatic backups, Google Drive uploads, Gmail email and sender identities are stored.
+            Communication billing can be added at any time from System Settings.
           </p>
           {notice && <div className="success-message">{notice}</div>}
           {error && <div className="error-message">{error}</div>}
@@ -612,8 +607,8 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
             <h1>{status?.organization?.legalName || 'SACCO Core Management System'}</h1>
             <p>
               {editingLive
-                ? 'Update the SACCO names, official phone and email, sender identities, communication billing and backup policy. Each step saves immediately and applies to new transactions, statements, receipts and messages. Transaction fees and tax rates are managed in Finance Settings.'
-                : 'Complete these settings before the system is used for official SACCO operations. Nothing is charged automatically; the billing section records the account and rates that will be used by the communication channels.'}
+                ? 'Update the SACCO names, official phone and email, sender identities, optional communication billing and backup policy. Each step saves immediately and applies to new transactions, statements, receipts and messages.'
+                : 'Complete these settings before the system is used for official SACCO operations. Communication billing is optional and can be skipped; no payment is initiated from this screen.'}
             </p>
           </div>
           <div className="setup-progress-chip">
@@ -1081,10 +1076,11 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
           {step === 4 && (
             <>
               <div className="setup-section-heading">
-                <h2>Communication billing</h2>
+                <h2>Communication billing (optional)</h2>
                 <p>
-                  Record the account that pays for SMS, WhatsApp, email and voice charges and the
-                  unit rates used for cost estimates. No payment is initiated from this screen.
+                  Optionally record the account that pays for SMS, WhatsApp, email and voice charges
+                  and the unit rates used for cost estimates. This step can be left blank and
+                  completed later from System Settings. No payment is initiated from this screen.
                 </p>
               </div>
               <div className="form-grid two-column">
@@ -1144,7 +1140,7 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
                 <h2>{editingLive ? 'Review live settings' : 'Review and go live'}</h2>
                 <p>
                   {editingLive
-                    ? 'These values are active now. Use the step buttons above to change a section; each save takes effect immediately. Transaction fees and tax rates are managed in Finance Settings.'
+                    ? 'These values are active now. Use the step buttons above to change a section; each save takes effect immediately.'
                     : 'Confirm the configuration. Business pages stay blocked until setup is complete.'}
                 </p>
               </div>
@@ -1191,10 +1187,10 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
                   <p>{status?.storage?.emailConnected ? `Email sender: ${status.storage.googleAccountEmail || status.messaging?.emailFromAddress}` : 'Email sender not connected'}</p>
                 </div>
                 <div className="setup-review-card">
-                  <h4>Billing</h4>
-                  <p>{status?.billing?.accountName || 'Account not set'}</p>
-                  <p>{status?.billing?.accountNumber || 'Number not set'}</p>
-                  <p>{status?.billing?.currency || 'Currency not set'}</p>
+                  <h4>Billing (optional)</h4>
+                  <p>{status?.billing?.accountName || 'Not configured'}</p>
+                  <p>{status?.billing?.accountNumber || 'Can be added later'}</p>
+                  <p>{status?.billing?.currency || 'No billing currency set'}</p>
                 </div>
               </div>
             </>

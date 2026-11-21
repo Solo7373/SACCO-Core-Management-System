@@ -254,26 +254,11 @@ export const api = {
   uploadCollateralDocument: (id, file, fields) => upload(`/collateral/${id}/documents`, file, fields),
   deleteCollateralDocument: (id, documentId) => request(`/collateral/${id}/documents/${documentId}`, { method: 'DELETE' }),
 
-  // Finance configuration: tax rates and transaction fees
-  getTaxRates: () => request('/finance/tax-rates'),
-  createTaxRate: (data) => request('/finance/tax-rates', { method: 'POST', body: JSON.stringify(data) }),
-  updateTaxRate: (id, data) => request(`/finance/tax-rates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  toggleTaxRate: (id) => request(`/finance/tax-rates/${id}/toggle`, { method: 'POST' }),
-  getFeeConfigs: () => request('/finance/fee-configs'),
-  createFeeConfig: (data) => request('/finance/fee-configs', { method: 'POST', body: JSON.stringify(data) }),
-  updateFeeConfig: (id, data) => request(`/finance/fee-configs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  toggleFeeConfig: (id) => request(`/finance/fee-configs/${id}/toggle`, { method: 'POST' }),
-
   // Auditor compliance workspace
   getComplianceTransactions: (params) => request(`/compliance/transactions${queryString(params)}`),
   exportComplianceTransactions: (params, format = 'csv') => download(
     `/compliance/transactions/export${queryString({ ...params, format })}`,
     `transaction-sheet-${new Date().toISOString().slice(0, 10)}.${format}`
-  ),
-  getTaxBreakdown: (params) => request(`/compliance/tax-breakdown${queryString(params)}`),
-  exportTaxBreakdown: (params, format = 'csv') => download(
-    `/compliance/tax-breakdown/export${queryString({ ...params, format })}`,
-    `tax-breakdown-${new Date().toISOString().slice(0, 10)}.${format}`
   ),
   getComplianceAuditLog: (params) => request(`/compliance/audit-log${queryString(params)}`),
   exportComplianceAuditLog: (params, format = 'csv') => download(
