@@ -27,6 +27,12 @@ public class SetupStatusResponse {
     private Long userId;
     private boolean readyToComplete;
     private List<String> missingFields;
+    /**
+     * True when every item on the go-live checklist is satisfied. These items
+     * do not block testing or day-to-day core operations.
+     */
+    private boolean goLiveReady;
+    private List<String> goLiveMissingFields;
     private Organization organization;
     private Storage storage;
     private Messaging messaging;

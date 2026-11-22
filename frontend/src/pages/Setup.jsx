@@ -227,7 +227,7 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
       if (!organization.phone.trim()) return 'Enter the organisation phone number.'
       if (!organization.email.trim()) return 'Enter the organisation email address.'
     }
-    if (step === 1 && !editingLive) {
+    if (step === 1 && !editingLive && adminChangeRequested()) {
       if (!admin.username.trim()) return 'Enter the administrator username.'
       if (!admin.email.trim()) return 'Enter the administrator email address.'
       if (status?.adminConfigured && !status.adminUsesDefaultPassword && !admin.currentPassword) {
@@ -293,6 +293,25 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
       }
     }
     return null
+  }
+
+  function adminChangeRequested() {
+    const admin = form.admin
+    if (!status?.adminConfigured) return true
+    if (admin.currentPassword || admin.newPassword || admin.confirmPassword) return true
+    return admin.username.trim().toLowerCase() !== String(status.adminUsername || '').toLowerCase()
+      || admin.email.trim().toLowerCase() !== String(status.adminEmail || '').toLowerCase()
+  }
+
+  function canSkipStep() {
+    if (step === 1) return Boolean(status?.adminConfigured)
+    return step === 2 || step === 3 || step === 4
+  }
+
+  function handleSkip() {
+    setError(null)
+    setNotice(`${STEPS[step].title} skipped for now. You can finish it later from System Settings.`)
+    setStep(current => Math.min(current + 1, STEPS.length - 1))
   }
 
   function storagePayload() {
@@ -373,6 +392,12 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
     // contact email is managed from Users.
     if (step === 1 && editingLive) {
       setNotice('The administrator account is secured. Use Change Password in the sidebar to rotate the password.')
+      setStep(2)
+      return
+    }
+
+    if (step === 1 && status?.adminConfigured && !adminChangeRequested()) {
+      setNotice('Administrator account left unchanged. Rotate the password from Change Password before go-live.')
       setStep(2)
       return
     }
@@ -572,12 +597,20 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
       <div className={embedded ? 'setup-embedded' : 'setup-page'}>
         <div className="setup-shell setup-success">
           <div className="setup-success-mark">✓</div>
-          <h2>System setup complete</h2>
+          <h2>Core setup complete</h2>
           <p>
-            {status?.organization?.legalName || 'Your SACCO'} is configured for official use.
-            Automatic backups, Google Drive uploads, Gmail email and sender identities are stored.
-            Communication billing can be added at any time from System Settings.
+            {status?.organization?.legalName || 'Your SACCO'} is unlocked for testing and daily
+            operations. Use System Settings to finish the go-live checklist when the organisation
+            details and provider credentials are ready.
           </p>
+          {status?.goLiveMissingFields?.length > 0 && (
+            <div className="setup-missing setup-golive">
+              <strong>Before go-live (does not block testing)</strong>
+              <ul>
+                {status.goLiveMissingFields.map(item => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          )}
           {notice && <div className="success-message">{notice}</div>}
           {error && <div className="error-message">{error}</div>}
           <div className="setup-actions">
@@ -587,7 +620,7 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
               </button>
             ) : (
               <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>
-                Continue to sign in
+                Continue to the system
               </button>
             )}
           </div>
@@ -603,12 +636,12 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
       <div className="setup-shell">
         <div className="setup-heading">
           <div>
-            <span className="setup-kicker">{editingLive ? 'Live configuration' : 'Go-live configuration'}</span>
+            <span className="setup-kicker">{editingLive ? 'Live configuration' : 'Initial system setup'}</span>
             <h1>{status?.organization?.legalName || 'SACCO Core Management System'}</h1>
             <p>
               {editingLive
                 ? 'Update the SACCO names, official phone and email, sender identities, optional communication billing and backup policy. Each step saves immediately and applies to new transactions, statements, receipts and messages.'
-                : 'Complete these settings before the system is used for official SACCO operations. Communication billing is optional and can be skipped; no payment is initiated from this screen.'}
+                : 'Core SACCO operations are unlocked as soon as an administrator account exists. Provider connections, sender identities and organisation details are go-live checks: finish them now or later from System Settings.'}
             </p>
           </div>
           <div className="setup-progress-chip">
@@ -726,7 +759,8 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
                   {status?.adminConfigured && (
                     <div className="info-banner">
                       An administrator account already exists. Enter its current password if it is not
-                      still using the factory default, then choose a new password.
+                      still using the factory default, then choose a new password. You can also leave the
+                      password fields blank and rotate it later from Change Password.
                     </div>
                   )}
                   <div className="form-grid two-column">
@@ -762,6 +796,10 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
                   account also sends member email through Gmail. Credentials are stored outside
                   the repository and are never written to the database.
                 </p>
+              </div>
+              <div className="info-banner">
+                Optional for testing. Local backups already run without Google Drive; finish this
+                step in System Settings before go-live.
               </div>
               <div className="form-grid two-column">
                 <Field label="Storage provider">
@@ -965,6 +1003,10 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
                   reminders. Select only the channels you have been provisioned for.
                 </p>
               </div>
+              <div className="info-banner">
+                Optional for testing. Reminders will be skipped or fail safely until provider
+                credentials and sender identities are added; core SACCO operations are not affected.
+              </div>
               <div className="form-grid two-column">
                 <Field label="SMS sender ID">
                   <input value={form.messaging.smsSenderId} onChange={e => update('messaging', 'smsSenderId', e.target.value)} placeholder="e.g. SCMS" />
@@ -1137,20 +1179,30 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
           {step === 5 && (
             <>
               <div className="setup-section-heading">
-                <h2>{editingLive ? 'Review live settings' : 'Review and go live'}</h2>
+                <h2>{editingLive ? 'Review live settings' : 'Review and unlock the system'}</h2>
                 <p>
                   {editingLive
                     ? 'These values are active now. Use the step buttons above to change a section; each save takes effect immediately.'
-                    : 'Confirm the configuration. Business pages stay blocked until setup is complete.'}
+                    : 'The administrator account is the only hard requirement. Everything under the go-live checklist can be finished later from System Settings.'}
                 </p>
               </div>
 
               {status?.missingFields?.length > 0 && (
                 <div className="setup-missing">
-                  <strong>Still required</strong>
+                  <strong>Required to unlock the system</strong>
                   <ul>
                     {status.missingFields.map(item => <li key={item}>{item}</li>)}
                   </ul>
+                </div>
+              )}
+
+              {status?.goLiveMissingFields?.length > 0 && (
+                <div className="setup-missing setup-golive">
+                  <strong>Before go-live (does not block testing)</strong>
+                  <ul>
+                    {status.goLiveMissingFields.map(item => <li key={item}>{item}</li>)}
+                  </ul>
+                  <p>Finish these from System Settings when the official details and providers are ready.</p>
                 </div>
               )}
 
@@ -1207,16 +1259,23 @@ function Setup({ initialStatus = null, embedded = false, liveMode = false, onCom
           </div>
           <div className="setup-footer-actions">
             {step < STEPS.length - 1 ? (
-              <button type="button" className="btn btn-primary" onClick={handleNext} disabled={saving || uploading || testing || testingEmail || sendingTestEmail || runningBackup}>
-                {saving ? 'Saving…' : 'Save and continue'}
-              </button>
+              <>
+                {canSkipStep() && (
+                  <button type="button" className="btn btn-ghost" onClick={handleSkip} disabled={saving || uploading || testing || testingEmail || sendingTestEmail || runningBackup}>
+                    Skip for now
+                  </button>
+                )}
+                <button type="button" className="btn btn-primary" onClick={handleNext} disabled={saving || uploading || testing || testingEmail || sendingTestEmail || runningBackup}>
+                  {saving ? 'Saving…' : 'Save and continue'}
+                </button>
+              </>
             ) : editingLive ? (
               <button type="button" className="btn btn-primary" onClick={() => { window.location.href = '/' }}>
                 Done
               </button>
             ) : (
               <button type="button" className="btn btn-primary" onClick={handleComplete} disabled={saving || status?.missingFields?.length > 0}>
-                {saving ? 'Completing…' : (embedded ? 'Save and finish' : 'Complete setup and go live')}
+                {saving ? 'Completing…' : (embedded ? 'Save and finish' : 'Finish setup and open the system')}
               </button>
             )}
           </div>

@@ -1,9 +1,11 @@
 # First-run system setup
 
-The application is not usable for official SACCO operations until the
-first-run setup is complete. On a fresh installation the setup wizard is the
-first screen; on an existing installation the administrator signs in first and
-then finishes the wizard.
+The application unlocks for testing and daily core operations once an
+administrator account exists and the initial setup is completed. Organisation
+identity, password rotation and provider connections are tracked separately on
+a non-blocking go-live checklist, so missing Drive, SMS, WhatsApp or email
+credentials never stop staff from using members, savings, shares, loans,
+collections, compliance, audit or local backups.
 
 The setup is stored in a single `system_settings` row created by Flyway
 migration `V16__system_setup.sql`. Secrets are **not** stored in that row:
@@ -15,8 +17,10 @@ and the database only records their path.
 ## 1. What is blocked
 
 While `setup_completed = false`, business APIs return HTTP `428 Precondition
-Required` with a message that setup must be completed. The following paths stay
-reachable so the system can be commissioned safely:
+Required` with a message that setup must be completed. Completion has only one
+hard requirement: an administrator account must exist. Every other item is a
+non-blocking go-live check shown in Review and System Settings. The following
+paths stay reachable so the system can be commissioned safely:
 
 - `/api/setup/**` - the wizard itself
 - `/api/auth/**` - sign-in, password change and administrator recovery
@@ -37,7 +41,9 @@ postal address lines, city, country, phone, email, website, timezone and
 currency. These values identify the SACCO on statements, demand letters and
 member messages.
 
-Required to go live: legal name, physical address, phone and email.
+Go-live checklist: legal name, physical address, phone and email. These values
+can be added later from System Settings and do not block testing or core
+operations.
 
 ### Administrator
 
@@ -47,8 +53,8 @@ administrator's credentials during an upgrade.
 - A new installation has no factory account. The setup creates the first
   `ADMIN` and returns a signed-in session so the remaining steps can run.
 - An existing installation must sign in before changing anything. If the old
-  `admin / admin123` factory account is still present, setup flags it and
-  requires a different password.
+  `admin / admin123` factory account is still present, the go-live checklist
+  flags it; the password can also be rotated later from Change Password.
 - If the administrator password has already been changed, the current password
   is required before the account can be rotated.
 
@@ -71,11 +77,12 @@ the configured backup queue mode is used and Drive fields are not required to
 go live. Email still requires an OAuth connection if the email channel is
 selected later.
 
-The wizard verifies the folder with a read-only Drive request before setup can
-be completed. The Google account email is verified with a Gmail profile request
-and can be confirmed with a real test send. The verified Drive and Gmail states
-are reset whenever the folder, Google account, provider, authentication mode or
-Gmail endpoint changes.
+The wizard verifies the folder with a read-only Drive request before the
+go-live checklist is clear. The Google account email is verified with a Gmail
+profile request and can be confirmed with a real test send. The verified Drive
+and Gmail states are reset whenever the folder, Google account, provider,
+authentication mode or Gmail endpoint changes. Drive and Gmail can be skipped
+during testing and finished later from System Settings.
 
 Credentials are stored in `GDRIVE_SECRETS_DIR`, defaulting to
 `~/.sacco/secrets`:
@@ -187,9 +194,10 @@ billing remains in Africa's Talking and Meta.
 ### Review
 
 The review step shows the saved organisation, administrator, storage,
-messaging and billing values. Completion is blocked until every required item
-is present, including a successful Drive connection test when Google Drive is
-selected and a successful Gmail connection test when email reminders are
+messaging and billing values. Completion is blocked only when no administrator
+account exists. All other items are shown as a go-live checklist and can be
+finished later from System Settings, including the Drive connection test when
+Google Drive is selected and the Gmail connection test when email reminders are
 selected.
 
 ---
@@ -241,10 +249,11 @@ If the database still contains the old `admin / admin123` account:
 
 1. Start the backend and open the application.
 2. Sign in with the old factory credentials.
-3. The wizard flags `adminUsesDefaultPassword` and requires a different
-   password before setup can be completed.
-4. Complete storage, messaging and billing.
-5. Complete setup and verify that business pages load normally.
+3. The Review step lists the factory password, organisation details and
+   provider connections as go-live checks. They do not block completion.
+4. Complete the initial setup to unlock the business pages.
+5. Finish the go-live checklist from System Settings when the providers and
+   official details are ready.
 
 If the factory password was already changed, sign in with the current password
 and confirm it in the Administrator step.
@@ -255,7 +264,7 @@ and confirm it in the Administrator step.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SACCO_SETUP_ENFORCE` | `true` | Return HTTP 428 for business APIs until setup is complete |
+| `SACCO_SETUP_ENFORCE` | `true` | Return HTTP 428 for business APIs until the administrator-only initial setup is complete |
 | `GDRIVE_AUTH_MODE` | `SERVICE_ACCOUNT` | Fallback Drive auth mode before the wizard saves one |
 | `GDRIVE_BASE_URL` | `https://www.googleapis.com` | Drive API base URL |
 | `GDRIVE_TOKEN_URI` | `https://oauth2.googleapis.com/token` | OAuth token endpoint |

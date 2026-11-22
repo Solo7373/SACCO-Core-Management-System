@@ -87,13 +87,16 @@ public class SetupService {
                     .adminConfigured(true)
                     .readyToComplete(false)
                     .missingFields(List.of())
+                    .goLiveReady(false)
+                    .goLiveMissingFields(List.of())
                     .build();
         }
         return buildStatus(settings, admin);
     }
 
     private SetupStatusResponse buildStatus(SystemSettings settings, User admin) {
-        List<String> missing = missingFields(settings, admin);
+        List<String> blocking = coreMissingFields(admin);
+        List<String> goLiveMissing = goLiveMissingFields(settings, admin);
 
         return SetupStatusResponse.builder()
                 .setupRequired(!Boolean.TRUE.equals(settings.getSetupCompleted()))
@@ -104,8 +107,10 @@ public class SetupService {
                 .adminUsername(admin == null ? null : admin.getUsername())
                 .adminEmail(admin == null ? null : admin.getEmail())
                 .userId(admin == null ? null : admin.getUserId())
-                .readyToComplete(missing.isEmpty())
-                .missingFields(missing)
+                .readyToComplete(blocking.isEmpty())
+                .missingFields(blocking)
+                .goLiveReady(goLiveMissing.isEmpty())
+                .goLiveMissingFields(goLiveMissing)
                 .organization(organization(settings))
                 .storage(storage(settings))
                 .messaging(messaging(settings))
@@ -540,7 +545,7 @@ public class SetupService {
         requireAccess();
         SystemSettings settings = settingsService.getOrCreate();
         User admin = primaryAdmin();
-        List<String> missing = missingFields(settings, admin);
+        List<String> missing = coreMissingFields(admin);
         if (!missing.isEmpty()) {
             throw new IllegalStateException("Complete these setup items first: " + String.join(", ", missing));
         }
@@ -548,7 +553,12 @@ public class SetupService {
         settings.setSetupCompleted(true);
         settings.setSetupCompletedAt(LocalDateTime.now());
         settingsService.save(settings);
-        audit("SETUP_COMPLETED", "System setup completed; the application is ready for official use");
+
+        int goLiveOutstanding = goLiveMissingFields(settings, admin).size();
+        audit("SETUP_COMPLETED", goLiveOutstanding == 0
+                ? "Core system setup completed; all go-live checks passed"
+                : "Core system setup completed; " + goLiveOutstanding
+                        + " go-live check(s) can still be finished from System Settings");
         return status();
     }
 
@@ -589,16 +599,27 @@ public class SetupService {
                 .orElse(false);
     }
 
-    private List<String> missingFields(SystemSettings settings, User admin) {
+    /**
+     * The only hard setup gate is a usable administrator. Requiring provider
+     * credentials here would stop an existing installation from being tested
+     * or operated while those integrations are arranged.
+     */
+    private List<String> coreMissingFields(User admin) {
+        List<String> missing = new ArrayList<>();
+        if (admin == null) {
+            missing.add("Administrator account");
+        }
+        return missing;
+    }
+
+    private List<String> goLiveMissingFields(SystemSettings settings, User admin) {
         List<String> missing = new ArrayList<>();
         if (isBlank(settings.getLegalName())) missing.add("Organisation legal name");
         if (isBlank(settings.getAddressLine1())) missing.add("Organisation address");
         if (isBlank(settings.getPhone())) missing.add("Organisation phone");
         if (isBlank(settings.getEmail())) missing.add("Organisation email");
 
-        if (admin == null) {
-            missing.add("Administrator account");
-        } else if (isDefaultAdminPassword(admin)) {
+        if (admin != null && isDefaultAdminPassword(admin)) {
             missing.add("Administrator password change");
         }
 

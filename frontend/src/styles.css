@@ -1759,6 +1759,8 @@ body.dark-mode .modal-subtitle { color: #94a3b8; }
 .setup-missing { background: #fff3e0; border-left: 3px solid #ef6c00; color: #8a4300; padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; font-size: 0.86rem; }
 .setup-missing ul { margin: 8px 0 0 18px; }
 .setup-missing li { margin-bottom: 3px; }
+.setup-missing.setup-golive { background: #e8f5e9; border-left-color: #2e7d32; color: #1b5e20; }
+.setup-missing.setup-golive p { margin: 8px 0 0; }
 .setup-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .setup-review-card { border: 1px solid #eee; border-radius: 10px; background: #fafafa; padding: 14px 16px; }
 .setup-review-card h4 { color: #bf360c; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
@@ -1797,6 +1799,7 @@ body.dark-mode .setup-inline-panel strong { color: #ffab91; }
 body.dark-mode .setup-file-button { background: #1a1a2e !important; border-color: #5a3a2a; color: #ffab91 !important; }
 body.dark-mode .setup-check { background: #1a1a2e; border-color: #333; }
 body.dark-mode .setup-missing { background: #2a2113; color: #ffcc80; }
+body.dark-mode .setup-missing.setup-golive { background: #132a1a; color: #a5d6a7; }
 body.dark-mode .setup-review-card { background: #1a1a2e; border-color: #333; }
 body.dark-mode .setup-review-card p { color: #cbd5e1; }
 body.dark-mode .setup-connected { color: #69f0ae; }
